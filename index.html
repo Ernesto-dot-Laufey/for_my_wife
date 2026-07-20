@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0c1f">
+<title>Happy Birthday!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+<style>
+  :root {
+    --sd-bg: #F0D8A8;
+    --sd-bg-dark: #E6C58B;
+    --sd-border-light: #F4E5BE;
+    --sd-border-mid: #C67A31;
+    --sd-border-dark: #9D5A27;
+    --sd-border-vdark: #5A2E12;
+    --sd-text: #5A2E12;
+    --sd-highlight: #E5863B;
+    --sd-green: #5C8C3E;
+    --font-pixel: 'Silkscreen', monospace;
+  }
+  
+  * { 
+    box-sizing: border-box; 
+    user-select: none; 
+    -webkit-user-select: none;
+    -webkit-touch-callout: none; 
+    -webkit-tap-highlight-color: transparent; 
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: #0a0c1f; 
+    font-family: var(--font-pixel); 
+    color: var(--sd-text);
+    touch-action: none;
+    -webkit-text-size-adjust: 100%; /* Prevents mobile browsers from artificially inflating text sizes */
+  }
+
+  input, textarea { 
+      -webkit-user-select: auto; 
+      user-select: auto; 
+  }
+
+  #skyCanvas, #fireflyCanvas, #minigameScreen, #itemGetScreen, #flowerTunnelCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  #minigameScreen, #itemGetScreen { pointer-events: auto; }
+  #skyCanvas { z-index: 0; image-rendering: pixelated; }
+  #fireflyCanvas { z-index: 1100; }
+  #flowerTunnelCanvas { z-index: 2800; } /* Fixed: Ensure tunnel is above dialogue but below item popup */
+
+  canvas { 
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated; 
+    image-rendering: crisp-edges;
+  }
+
+  #loadingScreen {
+    position: fixed; inset: 0; z-index: 1000;
+    background: transparent; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 0.5s ease;
+  }
+  
+  .loading-title {
+    font-size: min(56px, 10vw); color: #FFD700;
+    text-align: center; margin: 0 0 10px 0;
+    font-family: var(--font-pixel);
+    letter-spacing: 2px;
+    text-shadow: 0 4px 0 #E5863B, 0 8px 0 #9D5A27, 0 12px 0 #5A2E12, 0 16px 20px rgba(0,0,0,0.8);
+  }
+  
+  .loading-subtitle { font-size: min(16px, 4vw); color: var(--sd-bg); text-shadow: 2px 2px 0 var(--sd-border-vdark); text-align: center; padding: 0 10px;}
+  .loading-tap { margin-top: 50px; font-size: min(20px, 5vw); color: var(--sd-highlight); text-shadow: 2px 2px 0 var(--sd-border-vdark); animation: pulse 1.5s infinite; text-align: center;}
+  
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @keyframes floatCassette { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  
+  #cassetteCanvas { animation: floatCassette 3s ease-in-out infinite; cursor: pointer; }
+
+  #speciesSelectScreen {
+    position: fixed; inset: 0; z-index: 900;
+    background: rgba(10, 12, 31, 0.7); 
+    display: none; align-items: center; justify-content: center;
+    padding: 20px; opacity: 0; transition: opacity 0.5s ease;
+  }
+  
+  .species-menu, #app {
+    background: var(--sd-bg); border: 4px solid var(--sd-border-vdark); border-radius: 8px;
+    box-shadow: inset 4px 4px 0 var(--sd-border-light), inset -4px -4px 0 var(--sd-border-mid), 0 10px 30px rgba(0,0,0,0.6);
+  }
+
+  .species-menu { padding: 30px; text-align: center; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto;}
+  .species-title { font-size: 24px; color: #FFFFFF; text-shadow: 2px 2px 0 var(--sd-border-vdark); letter-spacing: 2px; margin: 0 0 20px 0; }
+  .species-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+  .species-card {
+    background: var(--sd-bg-dark); border: 4px solid var(--sd-border-vdark); border-radius: 8px;
+    padding: 10px; cursor: pointer; transition: transform 0.1s; width: 120px;
+  }
+  .species-card:active { transform: translate(2px, 2px); box-shadow: inset 2px 2px 0 rgba(0,0,0,0.4); }
+  .species-card canvas { display: block; width: 100%; height: auto; }
+  .species-name { display: block; margin-top: 10px; font-size: 14px; color: var(--sd-text); }
+
+  #app {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    padding: 20px; width: 95%; max-width: 860px;
+    display: none; flex-direction: column; gap: 15px;
+    opacity: 0; transition: opacity 0.5s ease;
+    overflow: hidden;
+    z-index: 10;
+  }
+  
+  @media (max-height: 600px) { #app { transform: translate(-50%, -50%) scale(0.85); } }
+  @media (max-height: 500px) { #app { transform: translate(-50%, -50%) scale(0.70); } }
+  @media (max-height: 400px) { #app { transform: translate(-50%, -50%) scale(0.55); } }
+
+  .title-bar { text-align: center; font-size: 24px; color: #FFFFFF; text-shadow: 2px 2px 0 var(--sd-border-vdark); letter-spacing: 2px; }
+  .main-grid { display: flex; gap: 20px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
+  .portrait-area { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .rot-btn, .menu-arrow {
+    background: var(--sd-highlight); border: 3px solid var(--sd-border-vdark); border-radius: 6px;
+    color: #FFF; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    box-shadow: inset -2px -2px 0 rgba(0,0,0,0.2), inset 2px 2px 0 rgba(255,255,255,0.4);
+    transition: transform 0.1s; padding: 0; flex-shrink: 0; touch-action: manipulation;
+  }
+  .rot-btn { width: 38px; height: 38px; }
+  .menu-arrow { width: 32px; height: 32px; }
+  .rot-btn:active, .menu-arrow:active { transform: translate(2px, 2px); box-shadow: inset 2px 2px 0 rgba(0,0,0,0.4); }
+  .rot-btn svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+  .menu-arrow svg { width: 18px; height: 18px; }
+
+  .portrait-box {
+    background: var(--sd-bg); border: 4px solid var(--sd-border-vdark); border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2); width: 140px; height: 280px; 
+    display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden;
+  }
+  #portraitCanvas { display: block; width: 100%; height: auto; z-index: 2; position: relative; }
+
+  .menus-wrapper { display: flex; gap: 20px; flex: 1; min-width: 0; flex-wrap: wrap; justify-content: center; }
+  .menu-col { display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; min-width: 180px; width: 100%; max-width: 300px; }
+  .menu-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .menu-cycle-text { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 12px; flex: 1; color: var(--sd-border-dark); }
+  .menu-cycle-text .val { font-size: 14px; color: var(--sd-text); }
+
+  .fields-col { display: flex; flex-direction: column; gap: 15px; flex: 1; min-width: 150px; max-width: 100%; }
+  .field-group { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .field-group label { flex-shrink: 0; }
+  .field-group input[type="text"] {
+    flex: 1; min-width: 0; width: 100%;
+    background: var(--sd-bg-dark); border: 3px solid var(--sd-border-vdark);
+    border-radius: 4px; padding: 8px 10px; font-family: var(--font-pixel); font-size: 14px; color: var(--sd-text);
+  }
+  
+  .slider-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .slider-group.disabled { opacity: 0.4; pointer-events: none; filter: grayscale(1); }
+  .slider-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; width: 100%; height: 6px; background: #000; border-radius: 3px; border: 1px solid var(--sd-border-vdark); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 24px; background: var(--sd-border-mid); border: 2px solid var(--sd-border-vdark); border-radius: 4px;
+  }
+  .color-val { font-size: 12px; width: 28px; text-align: right; flex-shrink: 0; }
+  
+  .footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
+  .ok-btn {
+    background: var(--sd-green); border: 3px solid var(--sd-border-vdark); border-radius: 8px;
+    color: #FFF; font-family: var(--font-pixel); font-size: 18px; padding: 10px 24px; cursor: pointer;
+    box-shadow: inset -2px -2px 0 rgba(0,0,0,0.2), inset 2px 2px 0 rgba(255,255,255,0.3); touch-action: manipulation;
+  }
+  .ok-btn:active { box-shadow: inset 2px 2px 0 rgba(0,0,0,0.4); transform: translate(2px, 2px); }
+  .ok-btn.secondary { background: var(--sd-highlight); }
+
+  #minigameScreen {
+    display: none; background: radial-gradient(circle at center, rgba(255, 200, 100, 0.15) 0%, rgba(20, 10, 50, 0.8) 100%);
+    opacity: 0; transition: opacity 1s ease;
+  }
+  #gameCanvas {
+    width: 100%; height: 100%; display: block; image-rendering: pixelated; 
+    transition: filter 0.5s ease; filter: saturate(1.2) contrast(1.1) brightness(1.05);
+  }
+
+  #mobileControls {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1500; display: none;
+  }
+  .joystick-area {
+    position: absolute;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    left: calc(20px + env(safe-area-inset-left));
+    pointer-events: auto;
+    display: grid;
+    /* Fixed: using vmin ensures buttons don't inflate horizontally on landscape */
+    grid-template-columns: repeat(3, clamp(40px, 12vmin, 55px));
+    grid-template-rows: repeat(3, clamp(40px, 12vmin, 55px));
+    gap: 4px;
+  }
+  .action-area {
+    position: absolute;
+    bottom: calc(30px + env(safe-area-inset-bottom));
+    right: calc(30px + env(safe-area-inset-right));
+    pointer-events: auto;
+  }
+  .ctrl-btn {
+    background: rgba(240, 216, 168, 0.4); border: 2px solid rgba(255, 255, 255, 0.6); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255, 255, 255, 0.9); font-size: clamp(16px, 5vmin, 22px); 
+    touch-action: none; user-select: none; transition: transform 0.05s; backdrop-filter: blur(2px);
+  }
+  .ctrl-btn.action {
+    width: clamp(60px, 18vmin, 75px); height: clamp(60px, 18vmin, 75px); border-radius: 50%;
+    font-family: var(--font-pixel); font-size: clamp(24px, 7vmin, 32px);
+    background: rgba(229, 134, 59, 0.6); color: #FFF; border-color: rgba(255,255,255,0.8);
+  }
+
+  #rotateOverlay {
+    display: none; position: fixed; inset: 0; z-index: 6000;
+    background: rgba(10, 12, 31, 0.98); flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 30px; pointer-events: auto; touch-action: none;
+  }
+  .rotate-icon { font-size: 64px; animation: rotateHint 1.8s ease-in-out infinite; margin-bottom: 20px; }
+  @keyframes rotateHint { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+  .rotate-title { color: #FFD700; font-size: 24px; letter-spacing: 1px; margin-bottom: 15px; font-family: var(--font-pixel); }
+  .rotate-sub { color: #FFF; font-size: 16px; line-height: 1.6; max-width: 320px; font-family: var(--font-pixel); text-shadow: 1px 1px 0 #000; }
+  
+  @media (orientation: portrait) and (max-width: 768px) {
+    body.game-active #rotateOverlay { display: flex; }
+    #mobileControls { display: none !important; }
+  }
+
+  #mailPopup, #itemGetScreen, #outroScreen {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center; opacity: 0;
+  }
+  #mailPopup { z-index: 2000; background: rgba(0,0,0,0.7); transition: opacity 0.3s ease; padding: 20px; }
+  #itemGetScreen { z-index: 3000; background: rgba(0, 0, 0, 0.85); transition: opacity 0.5s ease; }
+  #outroScreen { z-index: 5000; background: #0a0c1f; transition: opacity 3s ease; flex-direction: column; text-align: center; padding: 20px; }
+  
+  /* Scale down mail scene for landscape view */
+  #mailScene { position: relative; width: 100%; max-width: 420px; height: 500px; display: flex; align-items: center; justify-content: center; perspective: 1000px; transition: transform 0.3s ease; }
+  @media (max-height: 600px) { #mailScene { transform: scale(0.85); } }
+  @media (max-height: 500px) { #mailScene { transform: scale(0.70); } }
+  @media (max-height: 400px) { #mailScene { transform: scale(0.55); } }
+
+  .env-part { position: absolute; width: 340px; height: 220px; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: opacity 0.5s ease; }
+  .env-back { z-index: 1; background: #FFA6C9; border: 6px solid #C96884; border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 340px; height: 220px; }
+  .env-front { z-index: 3; pointer-events: none; }
+  .env-flap { z-index: 4; transform-origin: top; transition: transform 0.4s ease, opacity 0.5s ease; pointer-events: none; }
+  .env-hitbox { z-index: 10; cursor: pointer; border-radius: 8px; position: absolute; width: 340px; height: 220px; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  .flap-open { transform: translate(-50%, -50%) rotateX(180deg); z-index: 1 !important; }
+  .env-fade { opacity: 0 !important; pointer-events: none; }
+
+  .mail-content { 
+    background: #FFE9F0; border: 4px solid #C96884; border-radius: 8px; padding: 25px; 
+    width: 90%; max-width: 420px; text-align: center; position: relative; z-index: 2;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.6s ease, opacity 0.4s ease, clip-path 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none; clip-path: inset(0 0 0 0);
+    max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;
+  }
+  
+  .mail-content::-webkit-scrollbar { width: 6px; }
+  .mail-content::-webkit-scrollbar-track { background: transparent; }
+  .mail-content::-webkit-scrollbar-thumb { background: #C96884; border-radius: 3px; }
+
+  .letter-step-1 { transform: translateY(70px) scale(0.75); clip-path: inset(0 0 50% 0); box-shadow: none; opacity: 0; }
+  .letter-step-3 { transform: translateY(0px) scale(1); clip-path: inset(0 0 0 0); z-index: 5 !important; pointer-events: auto; box-shadow: 0 15px 40px rgba(0,0,0,0.4); opacity: 1; }
+  
+  .mail-header { font-size: 20px; color: #FFFFFF; text-shadow: 2px 2px 0 #C96884; margin-bottom: 15px; border-bottom: 4px dashed #FFB6C1; padding-bottom: 10px; font-family: var(--font-pixel); }
+  .mail-body { font-size: 14px; line-height: 1.6; color: #7A3B52; text-align: left; margin-bottom: 20px; font-family: var(--font-pixel); font-weight: normal; overflow-y: auto; flex: 1;}
+
+  #dialogueBox {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    width: 95%; max-width: 800px; background: #F0D8A8; border: 6px solid #C67A31; border-radius: 12px;
+    box-shadow: 0 0 0 6px #5A2E12, inset 0 0 0 4px #F4E5BE, 0 15px 30px rgba(0,0,0,0.5);
+    display: none; z-index: 2500; padding: 15px; gap: 15px; align-items: flex-start; opacity: 0; transition: opacity 0.2s;
+  }
+  .portrait-col { display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; }
+  .portrait-container {
+    width: clamp(60px, 15vmin, 110px); height: clamp(60px, 15vmin, 110px); background: #E6C58B;
+    border: 4px solid #5A2E12; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 4px 4px 0 rgba(255,255,255,0.3), inset -4px -4px 0 rgba(0,0,0,0.1);
+  }
+  .dialogue-name {
+    font-size: clamp(10px, 3vmin, 16px); color: #FFFFFF; background: #C67A31; border: 3px solid #5A2E12; border-radius: 6px;
+    padding: 4px 8px; text-align: center; text-shadow: 1px 1px 0 #5A2E12; font-family: var(--font-pixel);
+  }
+  .dialogue-content { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .dialogue-text { font-size: clamp(14px, 4vmin, 20px); color: #5A2E12; line-height: 1.5; min-height: 50px; font-family: var(--font-pixel); font-weight: normal;}
+  .dialogue-choices { display: flex; flex-direction: column; gap: 5px; }
+  .choice-btn {
+    background: transparent; border: none; text-align: left; font-family: var(--font-pixel); font-size: clamp(12px, 3.5vmin, 18px); color: #5A2E12;
+    cursor: pointer; padding: 6px 10px 6px 25px; position: relative; touch-action: manipulation;
+  }
+  .choice-btn:active { color: #D2342A; }
+  .choice-btn::before { content: '▶'; position: absolute; left: 0; top: 10px; color: #D2342A; font-size: 14px; }
+
+  #questSidebar {
+    position: fixed; top: 15px; right: 15px;
+    background: var(--sd-bg); border: 4px solid var(--sd-border-vdark); border-radius: 8px;
+    box-shadow: inset 4px 4px 0 var(--sd-border-light), inset -4px -4px 0 var(--sd-border-mid), 0 10px 30px rgba(0,0,0,0.6);
+    padding: 12px; display: none; flex-direction: column; gap: 6px; z-index: 1900;
+    opacity: 0; transform: translateX(20px); transition: all 0.5s ease; pointer-events: none;
+  }
+  .quest-title { font-size: 14px; color: #D2342A; text-shadow: 1px 1px 0 var(--sd-border-vdark); text-align: center; margin-bottom: 5px; border-bottom: 3px dashed var(--sd-border-mid); padding-bottom: 5px; font-family: var(--font-pixel); }
+  .quest-item { font-size: 12px; color: var(--sd-text); transition: color 0.3s, opacity 0.3s; font-family: var(--font-pixel); }
+  .quest-item.completed { color: var(--sd-green); text-decoration: line-through; opacity: 0.8; }
+
+  .outro-title { font-size: clamp(32px, 8vw, 48px); color: #FFC0CB; text-shadow: 0 4px 0 #C96884; margin-bottom: 20px; opacity: 0; transform: translateY(20px); transition: opacity 2s, transform 2s; font-family: var(--font-pixel); }
+  .outro-subtitle { font-size: clamp(16px, 4vw, 24px); color: #FFF; line-height: 1.5; opacity: 0; transform: translateY(20px); transition: opacity 2s, transform 2s; font-family: var(--font-pixel); }
+  .outro-title.show, .outro-subtitle.show, .outro-btn.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .outro-btn { margin-top: 30px; opacity: 0; transform: translateY(20px); transition: opacity 2s, transform 2s; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<audio id="bgMusic" loop preload="auto">
+  <source src="Love_Is_Everywhere.mp3" type="audio/mpeg">
+</audio>
+
+<canvas id="skyCanvas"></canvas>
+<canvas id="fireflyCanvas"></canvas>
+
+<!-- Loading / Title -->
+<div id="loadingScreen">
+  <canvas id="cassetteCanvas" width="96" height="64" style="margin-bottom: 20px; width: 144px; height: 96px; image-rendering: pixelated; filter: drop-shadow(0 8px 0 rgba(0,0,0,0.6));"></canvas>
+  <div class="loading-title">HAPPY<br>BIRTHDAY, DANI !!</div>
+  <div class="loading-subtitle">Happy birthday, babyyy kooo ^^</div>
+  <div class="loading-subtitle">I hope you enjoy my simple gifts for youuu : D</div>
+  <div class="loading-tap">TAP THE CASSETTE TO PLAY</div>
+</div>
+
+<!-- Species Selection -->
+<div id="speciesSelectScreen">
+  <div class="species-menu">
+    <div class="species-title">CHOOSE YOUR CRITTER</div>
+    <div class="species-grid" id="speciesGrid"></div>
+  </div>
+</div>
+
+<!-- Character Creator -->
+<div id="app">
+  <div class="title-bar">GET DRESSED</div>
+  <div class="main-grid">
+    <div class="portrait-area">
+      <button class="rot-btn" id="rotLeft"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg></button>
+      <div class="portrait-box"><canvas id="portraitCanvas" width="140" height="280"></canvas></div>
+      <button class="rot-btn" id="rotRight"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" /></svg></button>
+    </div>
+
+    <div class="menus-wrapper">
+      <div class="menu-col">
+        <div class="menu-row"><button class="menu-arrow" id="critterLeft"><svg viewBox="0 0 24 24"><path d="M14 6L8 12L14 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button><div class="menu-cycle-text"><div>ANIMAL</div><div class="val" id="critterLabel">—</div></div><button class="menu-arrow" id="critterRight"><svg viewBox="0 0 24 24"><path d="M10 6L16 12L10 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button></div>
+        <div class="menu-row"><button class="menu-arrow" id="hatLeft"><svg viewBox="0 0 24 24"><path d="M14 6L8 12L14 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button><div class="menu-cycle-text"><div>HAT</div><div class="val" id="hatLabel">—</div></div><button class="menu-arrow" id="hatRight"><svg viewBox="0 0 24 24"><path d="M10 6L16 12L10 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button></div>
+        <div class="menu-row"><button class="menu-arrow" id="outfitLeft"><svg viewBox="0 0 24 24"><path d="M14 6L8 12L14 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button><div class="menu-cycle-text"><div>OUTFIT</div><div class="val" id="outfitLabel">—</div></div><button class="menu-arrow" id="outfitRight"><svg viewBox="0 0 24 24"><path d="M10 6L16 12L10 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button></div>
+        <div class="menu-row"><button class="menu-arrow" id="pantsLeft"><svg viewBox="0 0 24 24"><path d="M14 6L8 12L14 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button><div class="menu-cycle-text"><div>PANTS</div><div class="val" id="pantsLabel">—</div></div><button class="menu-arrow" id="pantsRight"><svg viewBox="0 0 24 24"><path d="M10 6L16 12L10 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button></div>
+        <div class="menu-row"><button class="menu-arrow" id="shoeLeft"><svg viewBox="0 0 24 24"><path d="M14 6L8 12L14 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button><div class="menu-cycle-text"><div>SHOES</div><div class="val" id="shoeLabel">—</div></div><button class="menu-arrow" id="shoeRight"><svg viewBox="0 0 24 24"><path d="M10 6L16 12L10 18" stroke="currentColor" stroke-width="4" stroke-linecap="square" fill="none"/></svg></button></div>
+      </div>
+      
+      <div class="fields-col">
+        <div class="field-group"><label>NAME</label><input type="text" id="fieldName" placeholder=""></div>
+        <div class="slider-group"><div class="slider-label" style="font-size: 12px">SHIRT COLOR:</div><div id="shirtSliders"></div></div>
+        <div class="slider-group" id="pantsColorBlock"><div class="slider-label" style="font-size: 12px">PANTS COLOR:</div><div id="pantsSliders"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><button class="ok-btn" id="finishBtn">FINISH</button></div>
+</div>
+
+<div id="minigameScreen"><canvas id="gameCanvas"></canvas></div>
+<canvas id="flowerTunnelCanvas"></canvas>
+
+<!-- Mobile Thumb Controls -->
+<div id="mobileControls">
+  <div class="joystick-area">
+    <div style="grid-column: 2; grid-row: 1" class="ctrl-btn" id="btnUp">▲</div>
+    <div style="grid-column: 1; grid-row: 2" class="ctrl-btn" id="btnLeft">◀</div>
+    <div style="grid-column: 3; grid-row: 2" class="ctrl-btn" id="btnRight">▶</div>
+    <div style="grid-column: 2; grid-row: 3" class="ctrl-btn" id="btnDown">▼</div>
+  </div>
+  <div class="action-area">
+    <div class="ctrl-btn action" id="btnAction">E</div>
+  </div>
+</div>
+
+<div id="rotateOverlay">
+  <div class="rotate-icon">📱</div>
+  <div class="rotate-title">TURN YOUR PHONE SIDEWAYS</div>
+  <div class="rotate-sub">This app is designed to be played in landscape mode for the best view! Please rotate your device.</div>
+</div>
+
+<!-- Overlays -->
+<div id="mailPopup">
+  <div id="mailScene">
+    <div class="env-back env-part"></div>
+    <div class="mail-content letter-step-1" id="mailLetter">
+      <div class="mail-header">HAPPY BIRTHDAY, DANI!</div>
+      <div class="mail-body">
+        <p>Happy Birthday, <span id="mailPlayerName">babyyy ^^</span>! 💖</p><br>
+        <p>I built this little world just for you to celebrate your special day.</p>
+        <p>I hope it makes you smile as much as you make me smile every single day.</p>
+        <p>Come find me inside the house, I have a surprise for you!</p><br>
+        <p><i>- Your Hubby</i></p>
+      </div>
+      <button class="ok-btn" id="closeMailBtn" style="margin-top: 10px;">CLOSE</button>
+    </div>
+    
+    <svg class="env-front env-part" id="envFront" viewBox="0 0 340 220" preserveAspectRatio="none">
+        <!-- Envelope side flaps forming the pocket -->
+        <path d="M 3,3 L 170,120 L 337,3 L 337,217 L 3,217 Z" fill="#FFB6C1" stroke="#C96884" stroke-width="6" stroke-linejoin="round"/>
+        <!-- Envelope bottom flap overlapping the sides -->
+        <path d="M 3,217 L 170,95 L 337,217 Z" fill="#FFA6C9" stroke="#C96884" stroke-width="6" stroke-linejoin="round"/>
+    </svg>
+    <svg class="env-flap env-part" id="envFlap" viewBox="0 0 340 220" preserveAspectRatio="none">
+        <!-- Envelope top flap overlapping the bottom flap -->
+        <path d="M 3,3 L 170,135 L 337,3 Z" fill="#FF94B8" stroke="#C96884" stroke-width="6" stroke-linejoin="round"/>
+    </svg>
+    
+    <div class="env-hitbox" id="envHitbox"></div>
+  </div>
+</div>
+
+<div id="dialogueBox">
+  <div class="portrait-col">
+    <div class="portrait-container"><canvas id="dialoguePortrait" width="100" height="100"></canvas></div>
+    <div class="dialogue-name" id="dialogueName">Your Hubby</div>
+  </div>
+  <div class="dialogue-content">
+    <div class="dialogue-text" id="dialogueText"></div>
+    <div class="dialogue-choices" id="dialogueChoices"></div>
+  </div>
+</div>
+
+<div id="itemGetScreen"><canvas id="itemGetCanvas"></canvas></div>
+
+<div id="outroScreen">
+  <div class="outro-title">Happy Birthday, Dani!</div>
+  <div class="outro-subtitle">I love you so much, <span id="outroName">babyyy ^^</span></div>
+  <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 20px;">
+    <button class="ok-btn outro-btn" id="downloadPortraitBtn">SAVE PICTURE</button>
+    <button class="ok-btn outro-btn secondary" id="downloadCoupleBtn">SAVE COUPLE PICTURE</button>
+  </div>
+</div>
+
+<div id="questSidebar">
+  <div class="quest-title">QUESTS</div>
+  <div class="quest-item" id="q-mail">[ ] Check Mail</div>
+  <div class="quest-item" id="q-house" style="display: none; opacity: 0;">[ ] Enter House</div>
+  <div class="quest-item" id="q-talk" style="display: none; opacity: 0;">[ ] Talk to Hubby</div>
+</div>
+
+<script>
+const state = {
+  gameActive: false,
+  isMailOpen: false, isNearMailbox: false, isNearDoor: false, isNearExit: false, isNearNpc: false,
+  isDialogueOpen: false, isItemGetOpen: false, 
+  scene: 'outside', 
+  target: null, keys: {}, previewDirIndex: 0, lastIdleBob: -1,
+  quests: { mail: false, house: false, talk: false }
+};
+
+const bgMetrics = { scale: 1, offsetX: 0, offsetY: 0 };
+const winSize = { w: window.innerWidth, h: window.innerHeight };
+
+const els = {
+  skyCanvas: document.getElementById('skyCanvas'), fireflyCanvas: document.getElementById('fireflyCanvas'),
+  gameCanvas: document.getElementById('gameCanvas'), loadingScreen: document.getElementById('loadingScreen'),
+  speciesSelectScreen: document.getElementById('speciesSelectScreen'), appRoot: document.getElementById('app'),
+  minigameScreen: document.getElementById('minigameScreen'), flowerTunnelCanvas: document.getElementById('flowerTunnelCanvas'),
+  itemGetScreen: document.getElementById('itemGetScreen'), itemGetCanvas: document.getElementById('itemGetCanvas')
+};
+
+const skyCtx = els.skyCanvas.getContext('2d'); const fctx = els.fireflyCanvas.getContext('2d');
+const gctx = els.gameCanvas.getContext('2d'); const pctxMain = document.getElementById('portraitCanvas').getContext('2d');
+skyCtx.imageSmoothingEnabled = false; pctxMain.imageSmoothingEnabled = false;
+
+const sfx = {
+  initialized: false,
+  init() {
+    if (this.initialized) return;
+    Tone.start(); this.initialized = true;
+    this.uiSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.0, release: 0.1 } }).toDestination(); this.uiSynth.volume.value = -12;
+    this.stepSynth = new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 1, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.01 } }).toDestination(); this.stepSynth.volume.value = -18;
+    this.typeSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'square' }, envelope: { attack: 0.005, decay: 0.02, sustain: 0, release: 0.01 } }).toDestination(); this.typeSynth.volume.value = -28;
+    this.mailSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 } }).toDestination(); this.mailSynth.volume.value = -15;
+    this.doorSynth = new Tone.MembraneSynth({ pitchDecay: 0.1, octaves: 4, oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 0.1 } }).toDestination(); this.doorSynth.volume.value = -15;
+    this.magicSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.2, release: 1.5 } }).toDestination(); this.magicSynth.volume.value = -12;
+  },
+  playUI() { if(this.initialized) this.uiSynth.triggerAttackRelease("C5", "16n", Tone.now()); },
+  playUISelect() { if(this.initialized) this.uiSynth.triggerAttackRelease("E5", "8n", Tone.now()); },
+  playStep() { if(this.initialized) this.stepSynth.triggerAttackRelease("C2", "8n", Tone.now()); },
+  playType() { if(this.initialized) this.typeSynth.triggerAttackRelease("G4", 0.02, Tone.now()); },
+  playMailOpen() { if(this.initialized) this.mailSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", Tone.now()); },
+  playMailSlide() { if(this.initialized) this.mailSynth.triggerAttackRelease(["F4", "A4", "C5", "F5"], "4n", Tone.now()); },
+  playDoor() { if(this.initialized) this.doorSynth.triggerAttackRelease("G2", "8n", Tone.now()); },
+  playItemGet() { 
+      if(!this.initialized) return; const now = Tone.now();
+      this.magicSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", now);
+      this.magicSynth.triggerAttackRelease(["C4", "F4", "A4"], "8n", now + 0.2);
+      this.magicSynth.triggerAttackRelease(["D4", "G4", "B4"], "8n", now + 0.4);
+      this.magicSynth.triggerAttackRelease(["C4", "E4", "G4", "C5", "E5"], "2n", now + 0.6);
+  },
+  playTunnel() {
+      if(!this.initialized) return; const now = Tone.now();
+      const notes = ["C4", "D4", "F4", "G4", "A4", "C5", "D5", "F5", "G5", "A5", "C6", "D6", "F6", "G6", "A6", "C7"];
+      notes.forEach((note, i) => this.magicSynth.triggerAttackRelease(note, "16n", now + (i * 0.21)));
+  }
+};
+
+window.addEventListener('resize', () => {
+  const oldScale = bgMetrics.scale;
+  const oldOffsetX = bgMetrics.offsetX;
+  const oldOffsetY = bgMetrics.offsetY;
+
+  winSize.w = window.innerWidth; winSize.h = window.innerHeight;
+  els.flowerTunnelCanvas.width = winSize.w; els.flowerTunnelCanvas.height = winSize.h;
+  if (els.itemGetCanvas) { els.itemGetCanvas.width = winSize.w; els.itemGetCanvas.height = winSize.h; }
+  
+  els.skyCanvas.width = winSize.w; els.skyCanvas.height = winSize.h;
+  skyCtx.imageSmoothingEnabled = false;
+  els.fireflyCanvas.width = winSize.w; els.fireflyCanvas.height = winSize.h;
+  
+  if (state.gameActive) {
+    els.gameCanvas.width = winSize.w; els.gameCanvas.height = winSize.h;
+    gctx.imageSmoothingEnabled = false;
+    updateBgTransform();
+
+    // Reproject player coordinates to stay in the exact same spot on the background when rotating devices
+    if (oldScale > 0) {
+      const nativeX = (player.x - oldOffsetX) / oldScale;
+      const nativeY = (player.y - oldOffsetY) / oldScale;
+      player.x = (nativeX * bgMetrics.scale) + bgMetrics.offsetX;
+      player.y = (nativeY * bgMetrics.scale) + bgMetrics.offsetY;
+    }
+  }
+});
+window.dispatchEvent(new Event('resize'));
+
+const SKY_RES_W = 320; const SKY_RES_H = 180; 
+const SKY_TOP = '#0a0c1f'; const SKY_BOT = '#1a1d40';
+
+const skyBuffer = document.createElement('canvas');
+skyBuffer.width = SKY_RES_W; skyBuffer.height = SKY_RES_H;
+const bctx = skyBuffer.getContext('2d'); bctx.imageSmoothingEnabled = false;
+const bgGrad = bctx.createLinearGradient(0, 0, 0, SKY_RES_H);
+bgGrad.addColorStop(0, SKY_TOP); bgGrad.addColorStop(1, SKY_BOT);
+
+const stars = Array.from({length: 60}, () => ({ x: Math.random() * SKY_RES_W, y: Math.random() * SKY_RES_H, phase: Math.random() * Math.PI * 2, speed: 0.02 + Math.random() * 0.03 }));
+const fireflies = Array.from({length: 80}, () => ({ x: Math.random() * winSize.w, y: Math.random() * winSize.h, vx: (Math.random() - 0.5) * 1, vy: (Math.random() - 0.5) * 1, size: Math.random() * 2.0 + 1, phase: Math.random() * Math.PI * 2, speed: 0.02 + Math.random() * 0.03 }));
+
+const preRenderedFirefly = document.createElement('canvas'); preRenderedFirefly.width = 40; preRenderedFirefly.height = 40;
+const pCtx = preRenderedFirefly.getContext('2d'); pCtx.beginPath(); pCtx.arc(20, 20, 3, 0, Math.PI * 2); pCtx.fillStyle = `rgba(200, 255, 100, 1)`; pCtx.shadowBlur = 15; pCtx.shadowColor = 'rgba(200, 255, 100, 1)'; pCtx.fill();
+
+const critterCache = {};
+function getOutfitHash(type, out) { return `${type.id}_${out.hat}_${out.outfitStyle}_${out.top}_${out.bottom}_${out.shoeStyle}_${out.shoeColor}_${out.pantsStyle}_${out.heldItem}`; }
+
+function animateSky() {
+    bctx.fillStyle = bgGrad; bctx.fillRect(0, 0, SKY_RES_W, SKY_RES_H);
+    stars.forEach(s => { s.phase += s.speed; const alpha = (Math.sin(s.phase) + 1) / 2; bctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`; bctx.fillRect(Math.floor(s.x), Math.floor(s.y), 1, 1); });
+
+    const scale = Math.max(els.skyCanvas.width / SKY_RES_W, els.skyCanvas.height / SKY_RES_H);
+    const scaledW = SKY_RES_W * scale; const scaledH = SKY_RES_H * scale;
+    const dx = (els.skyCanvas.width - scaledW) / 2; const dy = (els.skyCanvas.height - scaledH) / 2;
+
+    skyCtx.clearRect(0, 0, els.skyCanvas.width, els.skyCanvas.height);
+    if (state.scene === 'inside') { skyCtx.fillStyle = '#000000'; skyCtx.fillRect(0, 0, els.skyCanvas.width, els.skyCanvas.height); } 
+    else { skyCtx.drawImage(skyBuffer, dx, dy, scaledW, scaledH); }
+
+    fctx.clearRect(0, 0, els.fireflyCanvas.width, els.fireflyCanvas.height);
+    fireflies.forEach(f => {
+        f.vx = Math.max(-1, Math.min(1, f.vx + (Math.random() - 0.5) * 0.1)); f.vy = Math.max(-1, Math.min(1, f.vy + (Math.random() - 0.5) * 0.1));
+        f.x += f.vx; f.y += f.vy;
+        if (f.x < -20) f.x = els.fireflyCanvas.width + 20; else if (f.x > els.fireflyCanvas.width + 20) f.x = -20;
+        if (f.y < -20) f.y = els.fireflyCanvas.height + 20; else if (f.y > els.fireflyCanvas.height + 20) f.y = -20;
+        f.phase += f.speed;
+        fctx.globalAlpha = ((Math.sin(f.phase) + 1) / 2) * 0.9;
+        const drawSize = 40 * (f.size / 3); 
+        fctx.drawImage(preRenderedFirefly, f.x - drawSize/2, f.y - drawSize/2, drawSize, drawSize);
+    });
+    requestAnimationFrame(animateSky);
+}
+animateSky();
+
+const CRITTER_TYPES = [
+  { id:'mouse', name:'Mouse', base:'#D9CDBB', ear:'round', tail:'thin' }, { id:'cat', name:'Cat', base:'#EDEAE3', ear:'pointy', tail:'long' },
+  { id:'dog', name:'Dog', base:'#D9A15E', ear:'floppy', tail:'short', earTip:'#8B5E3C' }, { id:'rabbit', name:'Rabbit', base:'#F6ECDD', ear:'long', tail:'poof', earTip:'#8B5E3C' },
+  { id:'walnut_squirrel', name:'Squirrel', base:'#A9784E', ear:'round', tail:'bushy' }
+];
+const HATS = [ {id:'none',label:'None'}, {id:'straw',label:'Straw Hat'}, {id:'hennin',label:'Hennin'} ];
+const OUTFITS = [ {id:'jumpsuit',label:'Jumpsuit'}, {id:'gown',label:'Gown'}, {id:'sweater',label:'Sweater'}, {id:'kimono',label:'Kimono'}, {id:'suit',label:'Suit'} ];
+const SHOES = [ {id:'sneakers',label:'Sneakers'}, {id:'boots',label:'Boots'}, {id:'heels',label:'Heels'} ];
+const PANTS = [ {id:'pants',label:'Standard'}, {id:'jeans',label:'Jeans'}, {id:'skirt',label:'Skirt'}, {id:'long_skirt',label:'Long Skirt'} ];
+
+let outfit = { hat:'none', outfitStyle:'jumpsuit', pantsStyle:'pants', top:'#5C8C3E', bottom:'#31568A', shoeStyle:'boots', shoeColor:'#3E2C23' };
+let selectedSpecies = CRITTER_TYPES[0]; let profile = { name:'' };
+
+let npcX = 0, npcY = 0;
+let npcObj = { nativeX: 0, nativeY: 0, name: 'Your Hubby', type: CRITTER_TYPES[1], outfit: { hat:'none', outfitStyle:'suit', pantsStyle:'pants', top:'#2b2b2b', bottom:'#1a1a1a', shoeStyle:'boots', shoeColor:'#000000', heldItem: 'orchids' }, dir: 'down' };
+
+const dialogueData = {
+  start: { text: "Happy Birthday, babyyy ^^ I picked these orchids just for you. Do you like them?", choices: [ { text: "I love them! Thank you so much!", next: "love" }, { text: "They're perfect, just like you.", next: "perfect" } ] },
+  love: { text: "Only the best for the best girlfriend in the entire world. I love you! Have the happiest birthday!", choices: [ { text: "[ Accept the Bouquet ]", action: "showBouquet" } ] },
+  perfect: { text: "Aww, you're making me blush... I love you so much! Happy birthday, my babyyy :3", choices: [ { text: "[ Accept the Bouquet ]", action: "showBouquet" } ] },
+  afterBouquet: { text: "But wait... that's not all. I have one more surprise for you.", choices: [ { text: "Oh? What is it?", next: "coffeeReveal" } ] },
+  coffeeReveal: { text: "It's a coffee pot... but instead of coffee, I filled it with little love letters and notes for you to read whenever you wake up in the morning ^^.", choices: [ { text: "[ Accept the Coffee Pot]", action: "showCoffee" } ] },
+  final: { text: "I hope you love reading them as much as I loved writing them. Happy Birthday again, my wifeee! :3", choices: [] }
+};
+
+let currentDialogueNode = null; let typewriterInterval = null; let currentTextFull = ""; let currentTextTyped = ""; let isTyping = false;
+
+function completeQuest(id) {
+  if (!state.quests[id]) {
+    state.quests[id] = true;
+    const el = document.getElementById(`q-${id}`);
+    if (el) { el.classList.add('completed'); el.textContent = el.textContent.replace('[ ]', '[X]'); }
+    setTimeout(() => {
+      let nextId = id === 'mail' ? 'q-house' : (id === 'house' ? 'q-talk' : null);
+      if (nextId) {
+        const nextEl = document.getElementById(nextId);
+        if (nextEl) { nextEl.style.display = 'block'; void nextEl.offsetWidth; nextEl.style.opacity = '1'; sfx.playUI(); }
+      }
+    }, 1200);
+  }
+}
+
+function renderDialoguePortrait() {
+  const dctx = document.getElementById('dialoguePortrait').getContext('2d');
+  dctx.imageSmoothingEnabled = false; dctx.clearRect(0,0,100,100);
+  drawCritter(dctx, 50, 85, 2.5, npcObj.type, npcObj.outfit, 'down', 0);
+}
+
+function openDialogue(nodeId) {
+  state.isDialogueOpen = true; player.moving = false; state.target = null;
+  currentDialogueNode = dialogueData[nodeId];
+  if (nodeId === 'start') completeQuest('talk');
+  
+  const box = document.getElementById('dialogueBox');
+  box.style.display = 'flex'; void box.offsetWidth; box.style.opacity = '1';
+  document.getElementById('dialogueName').textContent = npcObj.name || 'Critter';
+
+  renderDialoguePortrait(); startTypewriter(currentDialogueNode.text); document.getElementById('dialogueChoices').innerHTML = '';
+}
+
+function startTypewriter(text) {
+  currentTextFull = text; currentTextTyped = ""; isTyping = true;
+  document.getElementById('dialogueText').textContent = "";
+  clearInterval(typewriterInterval);
+  
+  let i = 0;
+  typewriterInterval = setInterval(() => {
+    currentTextTyped += text.charAt(i);
+    document.getElementById('dialogueText').textContent = currentTextTyped;
+    if (text.charAt(i) !== ' ') sfx.playType();
+    i++; if(i >= text.length) finishTyping();
+  }, 30);
+}
+
+function finishTyping() {
+  clearInterval(typewriterInterval); isTyping = false;
+  document.getElementById('dialogueText').textContent = currentTextFull;
+  const choicesDiv = document.getElementById('dialogueChoices'); choicesDiv.innerHTML = '';
+  if(currentDialogueNode.choices) {
+    currentDialogueNode.choices.forEach(choice => {
+      const btn = document.createElement('button'); btn.className = 'choice-btn'; btn.textContent = choice.text;
+      btn.onclick = (e) => { 
+        e.stopPropagation(); sfx.playUISelect();
+        if (choice.action === 'showBouquet') { closeDialogue(); state.isItemGetOpen = true; runFlowerTunnel(3500, () => startItemGetAnimation('orchids', 'You received the Birthday Bouquet!', 'afterBouquet')); }
+        else if (choice.action === 'showCoffee') { closeDialogue(); state.isItemGetOpen = true; setTimeout(() => startItemGetAnimation('coffeepot', 'You received the Coffee Pot of Letters!', 'final'), 300); }
+        else openDialogue(choice.next); 
+      };
+      choicesDiv.appendChild(btn);
+    });
+  }
+}
+
+function closeDialogue() {
+  const box = document.getElementById('dialogueBox'); box.style.opacity = '0';
+  setTimeout(() => { 
+      box.style.display = 'none'; state.isDialogueOpen = false; 
+      if (currentDialogueNode === dialogueData.final) startOutro();
+  }, 200);
+}
+
+function startOutro() {
+  const outro = document.getElementById('outroScreen');
+  document.getElementById('outroName').textContent = profile.name || 'babyyy ^^';
+  outro.style.display = 'flex'; void outro.offsetWidth; outro.style.opacity = '1';
+  
+  const bgm = document.getElementById('bgMusic'); let vol = bgm.volume;
+  const fadeAudio = setInterval(() => { vol -= 0.02; if (vol <= 0) { bgm.volume = 0; bgm.pause(); clearInterval(fadeAudio); } else bgm.volume = vol; }, 200);
+  
+  setTimeout(() => outro.querySelector('.outro-title').classList.add('show'), 2000);
+  setTimeout(() => outro.querySelector('.outro-subtitle').classList.add('show'), 4500);
+  setTimeout(() => outro.querySelectorAll('.outro-btn').forEach(b => b.classList.add('show')), 6000);
+}
+
+let itemGetAnimFrame = null;
+function startItemGetAnimation(itemId, message, nextNodeId) {
+  sfx.playItemGet(); state.isItemGetOpen = true; 
+  const screen = els.itemGetScreen; const canvas = els.itemGetCanvas; const ctx = canvas.getContext('2d');
+  screen.style.display = 'flex'; void screen.offsetWidth; screen.style.opacity = '1';
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight; ctx.imageSmoothingEnabled = false;
+
+  const startTime = performance.now();
+  const sparkles = Array.from({length: 40}, () => ({ x: (Math.random() - 0.5) * window.innerWidth, y: (Math.random() - 0.5) * window.innerHeight, size: Math.random() * 5 + 2, speed: Math.random() * 1.5 + 0.5, angle: Math.random() * Math.PI * 2, phase: Math.random() * Math.PI * 2 }));
+
+  function draw() {
+      const now = performance.now(); const elapsed = now - startTime;
+      const cx = canvas.width / 2; const cy = canvas.height / 2 - 40; 
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(elapsed * 0.0005);
+      for(let i=0; i<24; i++) {
+          ctx.beginPath(); ctx.moveTo(0,0);
+          ctx.lineTo(Math.cos((i/24) * Math.PI * 2)*1500, Math.sin((i/24) * Math.PI * 2)*1500);
+          ctx.lineTo(Math.cos(((i+0.5)/24) * Math.PI * 2)*1500, Math.sin(((i+0.5)/24) * Math.PI * 2)*1500);
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 230, 150, 0.12)' : 'rgba(255, 255, 255, 0.05)'; ctx.fill();
+      }
+      ctx.restore();
+
+      ctx.save(); ctx.translate(cx, cy);
+      sparkles.forEach(s => {
+          s.x += Math.cos(s.angle) * s.speed; s.y += Math.sin(s.angle) * s.speed;
+          if (Math.abs(s.x) > canvas.width) s.x *= -0.9; if (Math.abs(s.y) > canvas.height) s.y *= -0.9;
+          const twinkle = Math.abs(Math.sin(elapsed * 0.003 + s.phase));
+          ctx.fillStyle = `rgba(255, 255, 255, ${twinkle})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.size * twinkle, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.restore();
+
+      const fontSize1 = Math.min(24, canvas.width * 0.05); const fontSize2 = Math.min(16, canvas.width * 0.035);
+      const textOffset = Math.sin(elapsed * 0.002) * 5;
+      
+      ctx.fillStyle = '#FFFFFF'; ctx.font = `${fontSize1}px "Silkscreen", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowColor = '#000'; ctx.shadowBlur = 8;
+      ctx.fillText(message, cx, cy + 220 + textOffset);
+      ctx.font = `${fontSize2}px "Silkscreen", monospace`; ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.shadowBlur = 4;
+      ctx.fillText("Tap anywhere to continue", cx, cy + 260 + textOffset); ctx.shadowBlur = 0;
+
+      const progress = Math.min(1, elapsed / 1000);
+      const easeOutElastic = p => p === 0 ? 0 : p === 1 ? 1 : Math.pow(2, -10 * p) * Math.sin((p * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1;
+      const scale = easeOutElastic(progress) * 14;
+
+      ctx.save(); ctx.translate(cx, cy + Math.sin(elapsed * 0.002) * 12); ctx.scale(scale, scale);
+      drawHeldItem(ctx, 'front', 0, 0, itemId, 0, 0); ctx.restore();
+      itemGetAnimFrame = requestAnimationFrame(draw);
+  }
+  draw();
+  
+  const closeHandler = () => {
+      screen.style.opacity = '0';
+      setTimeout(() => { cancelAnimationFrame(itemGetAnimFrame); screen.style.display = 'none'; state.isItemGetOpen = false; if (nextNodeId) openDialogue(nextNodeId); }, 500);
+      screen.removeEventListener('click', closeHandler); screen.removeEventListener('touchstart', closeHandler);
+  };
+  screen.addEventListener('click', closeHandler);
+  screen.addEventListener('touchstart', closeHandler, {passive: true});
+}
+
+const OUTLINE = '#2b1c14'; const SPRITE_W = 48, SPRITE_H = 96; const CX = 24, HEAD_CY = 46, BODY_CY = 58; const DEFAULT_EAR_INNER = '#F2AABE';
+const spriteCanvas = document.createElement('canvas'); spriteCanvas.width = SPRITE_W; spriteCanvas.height = SPRITE_H; const sctx = spriteCanvas.getContext('2d'); sctx.imageSmoothingEnabled = false;
+
+function pxRect(ctx, x, y, w, h, color){ ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); }
+function pxEllipse(ctx, cx, cy, rx, ry, color, rowFilter){
+  ctx.fillStyle = color; const riy = Math.ceil(ry);
+  for (let dy = -riy; dy <= riy; dy++){
+    const t = 1 - (dy/ry)*(dy/ry); if (t < 0) continue;
+    const xr = Math.sqrt(t) * rx; const w = Math.max(1, Math.round(xr*2)); const yAbs = Math.round(cy + dy);
+    if (rowFilter && !rowFilter(yAbs)) continue;
+    ctx.fillRect(Math.round(cx - xr), yAbs, w, 1);
+  }
+}
+function pxTriUp(ctx, apexX, apexY, baseY, halfBaseW, color){
+  const h = Math.max(1, Math.round(baseY - apexY)); ctx.fillStyle = color;
+  for (let i = 0; i <= h; i++){
+    const t = i / h; const y = Math.round(apexY + i); const w = Math.max(1, Math.round(halfBaseW * t));
+    ctx.fillRect(Math.round(apexX - w), y, w*2, 1);
+  }
+}
+function shade(hex, amt){
+  const num = parseInt(hex.replace('#',''), 16);
+  let r = Math.max(0, Math.min(255, (num>>16) + amt)), g = Math.max(0, Math.min(255, ((num>>8)&0xff) + amt)), b = Math.max(0, Math.min(255, (num&0xff) + amt));
+  return `rgb(${r},${g},${b})`;
+}
+function hexToRgb(hex){ const c = hex.replace('#',''); return { r: parseInt(c.substring(0,2),16), g: parseInt(c.substring(2,4),16), b: parseInt(c.substring(4,6),16) }; }
+function rgbToHex(r,g,b){ return '#' + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
+
+function drawEarPx(ctx, side, shape, color, innerColor, tipColor, headCy = HEAD_CY){
+  const dir = side === 'left' ? -1 : 1;
+  if (shape === 'long'){ const ex = CX + dir*5, topY = headCy-11, baseY = headCy-1, midY = (topY+baseY)/2; pxEllipse(ctx, ex, midY, 2.6, 5.2, color); if (tipColor) pxEllipse(ctx, ex, midY, 2.6, 5.2, tipColor, y => y <= topY+3); pxEllipse(ctx, ex, midY+1, 1.1, 3.4, innerColor, y => y >= topY+3 && y <= baseY-1); }
+  else if (shape === 'pointy'){ const ex = CX + dir*6; pxTriUp(ctx, ex, headCy-11, headCy-1, 3.2, color); pxTriUp(ctx, ex, headCy-8, headCy-2, 1.6, innerColor); }
+  else if (shape === 'round'){ const ex = CX + dir*7, ey = headCy-6; pxEllipse(ctx, ex, ey, 4.2, 4.2, color); pxEllipse(ctx, ex, ey, 2.2, 2.2, innerColor); }
+  else if (shape === 'floppy'){ const ex = CX + dir*6.5, ey = headCy+2; pxEllipse(ctx, ex, ey, 2.8, 5.5, color); if (tipColor) pxEllipse(ctx, ex, ey, 2.8, 5.5, tipColor, y => y >= ey+2); pxEllipse(ctx, ex, ey+1, 1.2, 3.5, innerColor); }
+}
+function drawEarSidePx(ctx, shape, color, innerColor, tipColor, isFar=false, headCy = HEAD_CY){
+  const ex = CX + (isFar ? 3 : 1), colorToUse = isFar ? shade(color, -20) : color;
+  if (shape === 'long'){ const topY = headCy-11, baseY = headCy-1, midY = (topY+baseY)/2; pxEllipse(ctx, ex, midY, 2.8, 5.2, colorToUse); if (tipColor) pxEllipse(ctx, ex, midY, 2.8, 5.2, isFar ? shade(tipColor, -20) : tipColor, y => y <= topY+3); if (!isFar) pxEllipse(ctx, ex, midY+1, 1.2, 3.4, innerColor, y => y >= topY+3 && y <= baseY-1); }
+  else if (shape === 'pointy'){ pxTriUp(ctx, ex, headCy-11, headCy-1, 3.4, colorToUse); if (!isFar) pxTriUp(ctx, ex, headCy-8, headCy-2, 1.7, innerColor); }
+  else if (shape === 'round'){ pxEllipse(ctx, ex, headCy-6, 4.4, 4.4, colorToUse); if (!isFar) pxEllipse(ctx, ex+1, headCy-6, 2.2, 2.2, innerColor); }
+  else if (shape === 'floppy'){ const ey = headCy + 2, finalEx = ex + (isFar ? 0 : 1); pxEllipse(ctx, finalEx, ey, 2.8, 5.5, colorToUse); if (tipColor) pxEllipse(ctx, finalEx, ey, 2.8, 5.5, isFar ? shade(tipColor, -20) : tipColor, y => y >= ey+2); if (!isFar) pxEllipse(ctx, finalEx - 1, ey+1, 1.2, 3.5, innerColor); }
+}
+function drawTailPx(ctx, shape, color, bodyCy = BODY_CY){
+  const bx = CX - 4, by = bodyCy + 1;
+  if (shape === 'long') { pxEllipse(ctx, bx - 2, by + 1, 2.5, 2.5, color); pxEllipse(ctx, bx - 4, by + 4, 2, 3, color); pxEllipse(ctx, bx - 5, by + 7, 2, 3, color); pxEllipse(ctx, bx - 4, by + 10, 2, 2, color); pxEllipse(ctx, bx - 2, by + 11, 1.5, 1.5, color); }
+  else if (shape === 'poof') { pxEllipse(ctx, bx - 2, by + 3, 3.5, 3.5, color); }
+  else if (shape === 'thin') { pxRect(ctx, bx - 2, by + 2, 3, 2, color); pxRect(ctx, bx - 4, by + 3, 3, 2, color); pxRect(ctx, bx - 5, by + 5, 2, 3, color); pxRect(ctx, bx - 6, by + 8, 2, 3, color); pxRect(ctx, bx - 4, by + 10, 3, 2, color); }
+  else if (shape === 'short') { pxEllipse(ctx, bx - 2, by + 1, 2, 2.5, color); pxEllipse(ctx, bx - 3, by - 2, 1.5, 2, color); pxEllipse(ctx, bx - 4, by - 4, 1, 1.5, color); }
+}
+function drawBushyTailPx(ctx, color, bodyCy = BODY_CY){ pxEllipse(ctx, CX - 5, bodyCy + 3, 3, 3, OUTLINE); pxEllipse(ctx, CX - 10, bodyCy, 5, 6, OUTLINE); pxEllipse(ctx, CX - 9, bodyCy - 7, 6, 7, OUTLINE); pxEllipse(ctx, CX - 5, bodyCy + 3, 2, 2, color); pxEllipse(ctx, CX - 10, bodyCy, 4, 5, color); pxEllipse(ctx, CX - 9, bodyCy - 7, 5, 6, color); }
+function drawTailBackPx(ctx, shape, color, bodyCy = BODY_CY){
+  const bx = CX, by = bodyCy + 2;
+  if (shape === 'long') { pxEllipse(ctx, bx, by, 2.5, 2.5, color); pxEllipse(ctx, bx - 2, by + 3, 2, 3, color); pxEllipse(ctx, bx - 3, by + 6, 2, 3, color); pxEllipse(ctx, bx - 2, by + 9, 1.5, 2, color); pxEllipse(ctx, bx, by + 10, 1.5, 1.5, color); }
+  else if (shape === 'poof') { pxEllipse(ctx, bx, by + 1, 3.5, 3.5, color); }
+  else if (shape === 'thin') { pxRect(ctx, bx - 1, by + 1, 3, 2, color); pxRect(ctx, bx - 3, by + 2, 3, 2, color); pxRect(ctx, bx - 4, by + 4, 2, 3, color); pxRect(ctx, bx - 3, by + 7, 2, 3, color); pxRect(ctx, bx - 1, by + 9, 3, 2, color); }
+  else if (shape === 'short') { pxEllipse(ctx, bx, by - 1, 2, 2.5, color); pxEllipse(ctx, bx + 2, by - 3, 1.5, 2, color); pxEllipse(ctx, bx + 3, by - 5, 1, 1.5, color); }
+}
+function drawBushyTailBackPx(ctx, color, bodyCy = BODY_CY){ pxEllipse(ctx, CX, bodyCy - 5, 7, 8, OUTLINE); pxEllipse(ctx, CX, bodyCy + 1, 5, 5, OUTLINE); pxEllipse(ctx, CX, bodyCy + 5, 3, 3, OUTLINE); pxEllipse(ctx, CX, bodyCy - 5, 6, 7, color); pxEllipse(ctx, CX, bodyCy + 1, 4, 4, color); pxEllipse(ctx, CX, bodyCy + 5, 2, 2, color); }
+
+function drawHatPx(ctx, style, view = 'front', hx = CX, headCy = HEAD_CY){
+  if (style === 'none') return; const top = headCy - 10;
+  if (style === 'straw'){
+    if (view === 'side') { pxEllipse(ctx, hx, top + 6, 13, 3, '#EFC24D'); pxRect(ctx, hx - 5, top + 1, 10, 5, '#EFC24D'); pxRect(ctx, hx - 5, top + 5, 10, 2, '#D2342A'); }
+    else if (view === 'back') { pxEllipse(ctx, hx, top + 6, 14, 4, '#EFC24D'); pxRect(ctx, hx - 6, top + 1, 12, 5, '#EFC24D'); pxRect(ctx, hx - 6, top + 5, 12, 2, '#D2342A'); }
+    else { pxEllipse(ctx, hx, top + 6, 14, 4, '#EFC24D', y => y >= top + 6); pxRect(ctx, hx - 6, top + 1, 12, 5, '#EFC24D'); pxRect(ctx, hx - 6, top + 5, 12, 2, '#D2342A'); }
+  } else if (style === 'hennin') {
+    let apexX = hx, veilX = hx;
+    if (view === 'side') { apexX = hx - 4; veilX = apexX - 1; } else if (view === 'back') { apexX = hx - 3; veilX = apexX + 1; } else { apexX = hx + 3; veilX = apexX + 1; } 
+    const apexY = top - 30, baseY = top + 3;
+    ctx.save(); if (view === 'front' || view === 'side') ctx.globalCompositeOperation = 'destination-over';
+    pxRect(ctx, veilX - 1, apexY + 4, 6, 44, '#E8E8E3'); pxRect(ctx, veilX - 2, apexY + 12, 8, 36, '#DCDCD7'); pxRect(ctx, veilX, apexY, 4, 48, '#F5F5F0'); ctx.restore();
+    ctx.fillStyle = '#7DA4D4'; ctx.beginPath(); ctx.moveTo(apexX, apexY); ctx.lineTo(hx - 5, baseY); ctx.lineTo(hx + 5, baseY); ctx.fill();
+    ctx.fillStyle = '#A9C9E8'; ctx.beginPath(); ctx.moveTo(apexX, apexY + 2); ctx.lineTo(hx - 2, baseY); ctx.lineTo(hx + 2, baseY); ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i <= 1; i += 0.25) { let py = apexY + (baseY - apexY) * i; let pw = 5 * i; let pMidX = apexX + (hx - apexX) * i; ctx.fillRect(Math.round(pMidX - pw/2), Math.round(py), 1, 1); ctx.fillRect(Math.round(pMidX + pw/2), Math.round(py), 1, 1); }
+    pxRect(ctx, hx - 6, baseY, 12, 1, '#F8F4EE'); pxRect(ctx, hx - 7, baseY + 1, 14, 2, '#E6DCCF');
+    for(let i = -6; i <= 6; i += 2) pxRect(ctx, hx + i, baseY + 1, 1, 2, '#F8F4EE');
+    pxRect(ctx, hx - 3, baseY - 5, 2, 2, '#C7758B'); pxRect(ctx, hx + 2, baseY - 4, 2, 2, '#C7758B');
+  }
+}
+
+function drawLeg(view, lx, ly, style, shoeColor, pantsColor, pStyle) {
+  const isFront = view === 'front';
+  if (pStyle === 'long_skirt') { pxRect(sctx, lx - 2, ly, 8, 10, pantsColor); pxRect(sctx, lx - 3, ly + 10, 10, 2, pantsColor); if (isFront) { pxRect(sctx, lx - 1, ly + 2, 1, 8, shade(pantsColor, -15)); pxRect(sctx, lx + 2, ly + 2, 1, 8, shade(pantsColor, -15)); } return; }
+  if (style === 'boots') { pxRect(sctx, lx - 1, ly, 6, 10, OUTLINE); pxRect(sctx, lx, ly, 4, 5, pantsColor); pxRect(sctx, lx, ly + 5, 4, 5, shoeColor); if (isFront) { pxRect(sctx, lx + 1, ly + 9, 2, 1, shade(shoeColor, -30)); pxRect(sctx, lx, ly + 6, 4, 1, '#DDCBAA'); pxRect(sctx, lx, ly + 8, 4, 1, '#DDCBAA'); } }
+  else if (style === 'sneakers') { pxRect(sctx, lx - 1, ly, 6, 8, OUTLINE); pxRect(sctx, lx, ly, 4, 5, pantsColor); pxRect(sctx, lx, ly + 5, 4, 3, shoeColor); if (isFront) pxRect(sctx, lx + 1, ly + 6, 2, 1, '#FFFFFF'); pxRect(sctx, lx - 1, ly + 7, 6, 2, OUTLINE); pxRect(sctx, lx, ly + 7, 4, 1, '#FFFFFF'); }
+  else if (style === 'heels') { pxRect(sctx, lx - 1, ly, 6, 6, OUTLINE); pxRect(sctx, lx, ly, 4, 4, pantsColor); pxRect(sctx, lx, ly + 4, 4, 2, shoeColor); if (isFront) pxRect(sctx, lx, ly + 5, 4, 1, OUTLINE); pxRect(sctx, lx, ly + 6, 2, 2, OUTLINE); pxRect(sctx, lx + 1, ly + 6, 1, 1, shoeColor); }
+}
+
+function drawLegSide(lx, ly, style, shoeColor, pantsColor, isFar, pStyle) {
+  const bootLace = isFar ? '#888888' : '#DDCBAA';
+  if (pStyle === 'long_skirt') { pxRect(sctx, lx - 2, ly, 8, 10, pantsColor); pxRect(sctx, lx - 3, ly + 10, 10, 2, pantsColor); return; }
+  if (style === 'boots') { pxRect(sctx, lx, ly, 6, 10, OUTLINE); pxRect(sctx, lx + 1, ly, 4, 5, pantsColor); pxRect(sctx, lx + 1, ly + 5, 4, 5, shoeColor); pxRect(sctx, lx + 5, ly + 7, 2, 3, OUTLINE); pxRect(sctx, lx + 5, ly + 8, 1, 1, shoeColor); pxRect(sctx, lx + 4, ly + 6, 1, 1, bootLace); pxRect(sctx, lx + 4, ly + 8, 1, 1, bootLace); }
+  else if (style === 'sneakers') { pxRect(sctx, lx, ly, 6, 8, OUTLINE); pxRect(sctx, lx + 1, ly, 4, 5, pantsColor); pxRect(sctx, lx + 1, ly + 5, 4, 3, shoeColor); pxRect(sctx, lx + 5, ly + 5, 2, 3, OUTLINE); pxRect(sctx, lx + 5, ly + 6, 1, 1, '#FFFFFF'); pxRect(sctx, lx, ly + 7, 7, 2, OUTLINE); pxRect(sctx, lx + 1, ly + 7, 5, 1, '#FFFFFF'); }
+  else if (style === 'heels') { pxRect(sctx, lx, ly, 6, 6, OUTLINE); pxRect(sctx, lx + 1, ly, 4, 4, pantsColor); pxRect(sctx, lx + 1, ly + 4, 4, 2, shoeColor); pxRect(sctx, lx + 5, ly + 6, 2, 2, OUTLINE); pxRect(sctx, lx + 5, ly + 6, 1, 1, shoeColor); pxRect(sctx, lx, ly + 6, 2, 2, OUTLINE); pxRect(sctx, lx + 1, ly + 6, 1, 1, shoeColor); }
+}
+
+function drawBodyOutlineBox(cx, bodyCy){ pxRect(sctx, cx - 6, bodyCy - 6, 12, 11, OUTLINE); }
+
+function drawTorsoOutfit(view, cx, bodyCy, out){
+  const isFront = view === 'front';
+  if (out.outfitStyle === 'gown') { pxRect(sctx, cx - 5, bodyCy - 5, 10, 4, out.top); if (isFront) { pxRect(sctx, cx - 2, bodyCy - 4, 1, 1, '#FFFFFF'); pxRect(sctx, cx + 1, bodyCy - 3, 1, 1, '#FFFFFF'); pxRect(sctx, cx + 2, bodyCy - 5, 1, 1, '#FFFFFF'); } pxRect(sctx, cx - 6, bodyCy - 2, 12, 1, OUTLINE); pxRect(sctx, cx - 5, bodyCy - 2, 10, 1, shade(out.top, -15)); pxRect(sctx, cx - 7, bodyCy - 1, 14, 2, OUTLINE); pxRect(sctx, cx - 6, bodyCy - 1, 12, 2, out.top); pxRect(sctx, cx - 8, bodyCy + 1, 16, 2, OUTLINE); pxRect(sctx, cx - 7, bodyCy + 1, 14, 2, out.top); pxRect(sctx, cx - 9, bodyCy + 3, 18, 3, OUTLINE); pxRect(sctx, cx - 8, bodyCy + 3, 16, 3, out.top); pxRect(sctx, cx - 10, bodyCy + 6, 20, 3, OUTLINE); pxRect(sctx, cx - 9, bodyCy + 6, 18, 3, out.top); pxRect(sctx, cx - 11, bodyCy + 9, 22, 5, OUTLINE); pxRect(sctx, cx - 10, bodyCy + 9, 20, 4, out.top); }
+  else if (out.outfitStyle === 'kimono') { pxRect(sctx, cx - 7, bodyCy - 1, 14, 14, OUTLINE); pxRect(sctx, cx - 6, bodyCy - 1, 12, 13, out.top); pxRect(sctx, cx - 5, bodyCy - 5, 10, 17, out.top); pxRect(sctx, cx - 6, bodyCy - 2, 12, 4, OUTLINE); pxRect(sctx, cx - 5, bodyCy - 1, 10, 2, '#EFC24D'); if (isFront) { pxRect(sctx, cx - 2, bodyCy - 2, 4, 4, '#D2342A'); pxRect(sctx, cx - 1, bodyCy - 5, 2, 3, shade(out.top, -30)); pxRect(sctx, cx, bodyCy + 1, 1, 11, shade(out.top, -20)); } else { pxRect(sctx, cx - 3, bodyCy - 2, 6, 4, '#D2342A'); } }
+  else if (out.outfitStyle === 'sweater') { pxRect(sctx, cx - 5, bodyCy - 5, 10, 7, out.top); pxRect(sctx, cx - 5, bodyCy + 2, 10, 3, out.bottom); pxRect(sctx, cx - 5, bodyCy + 1, 10, 1, shade(out.top, -30)); for (let i = -4; i <= 4; i += 2) pxRect(sctx, cx + i, bodyCy - 5, 1, 6, shade(out.top, -15)); }
+  else if (out.outfitStyle === 'suit') { pxRect(sctx, cx - 5, bodyCy - 5, 10, 8, out.top); pxRect(sctx, cx - 5, bodyCy + 3, 10, 2, out.bottom); if (isFront) { pxRect(sctx, cx - 2, bodyCy - 5, 4, 5, '#FFFFFF'); pxRect(sctx, cx - 1, bodyCy - 4, 2, 6, '#D2342A'); pxRect(sctx, cx - 3, bodyCy - 5, 1, 7, shade(out.top, -20)); pxRect(sctx, cx + 2, bodyCy - 5, 1, 7, shade(out.top, -20)); pxRect(sctx, cx - 5, bodyCy + 2, 10, 1, shade(out.top, -30)); } }
+  else { pxRect(sctx, cx - 5, bodyCy - 5, 10, 5, out.top); if (out.pantsStyle === 'skirt') { pxRect(sctx, cx - 6, bodyCy, 12, 4, out.bottom); if (isFront) { pxRect(sctx, cx - 4, bodyCy + 1, 1, 3, shade(out.bottom, -15)); pxRect(sctx, cx + 1, bodyCy + 1, 1, 3, shade(out.bottom, -15)); } } else if (out.pantsStyle === 'jeans') { pxRect(sctx, cx - 5, bodyCy, 10, 5, out.bottom); if (isFront) { pxRect(sctx, cx - 1, bodyCy, 2, 5, shade(out.bottom, -20)); pxRect(sctx, cx - 5, bodyCy, 10, 1, '#8B5A2B'); pxRect(sctx, cx - 1, bodyCy, 2, 1, '#FFD700'); } } else { pxRect(sctx, cx - 4, bodyCy - 5, 2, 5, out.bottom); pxRect(sctx, cx + 2, bodyCy - 5, 2, 5, out.bottom); pxRect(sctx, cx - 5, bodyCy, 10, 5, out.bottom); } }
+}
+function drawArms(cx, bodyCy, out, legOffset){
+  [-1, 1].forEach(dir => { const ax = cx + dir * 7; const armOffset = dir < 0 ? -legOffset : legOffset; pxRect(sctx, ax - 1, bodyCy - 5 + armOffset, 4, 8, OUTLINE); if (out.outfitStyle === 'gown') { pxEllipse(sctx, ax + (dir*2), bodyCy - 4 + armOffset, 4.5, 4.5, OUTLINE); pxEllipse(sctx, ax + (dir*2), bodyCy - 4 + armOffset, 3.5, 3.5, out.top); } else if (out.outfitStyle === 'kimono') { pxRect(sctx, ax, bodyCy - 4 + armOffset, 2, 7, out.top); pxRect(sctx, ax + (dir*2), bodyCy - 2 + armOffset, 2, 6, out.top); } else if (out.outfitStyle === 'suit') { pxRect(sctx, ax, bodyCy - 4 + armOffset, 2, 6, out.top); } else { pxRect(sctx, ax, bodyCy - 4 + armOffset, 2, 6, out.top); } });
+}
+function drawHeadBase(cx, headCy, body){ pxRect(sctx, cx - 5, headCy - 6, 10, 13, OUTLINE); pxRect(sctx, cx - 6, headCy - 5, 12, 11, OUTLINE); pxRect(sctx, cx - 4, headCy - 5, 8, 11, body); pxRect(sctx, cx - 5, headCy - 4, 10, 9, body); }
+function drawFaceFront(cx, headCy, body){ pxRect(sctx, cx - 4, headCy, 2, 3, OUTLINE); pxRect(sctx, cx + 2, headCy, 2, 3, OUTLINE); pxRect(sctx, cx - 1, headCy + 3, 2, 1, shade(body, -30)); pxRect(sctx, cx - 6, headCy + 2, 2, 1, '#F0AFBE'); pxRect(sctx, cx + 4, headCy + 2, 2, 1, '#F0AFBE'); }
+
+function drawHeldItem(ctx, view, cx, bodyCy, item, swing = 0, overrideAngle = null) {
+  if (item !== 'orchids' && item !== 'coffeepot') return;
+  ctx.save();
+  let rotX = cx; if (view === 'side') rotX = cx + 3 - swing; else if (view === 'back') rotX = cx - 4;
+  let angleInDegrees = overrideAngle !== null ? overrideAngle : ((item === 'coffeepot') ? 20 : 45);
+  ctx.translate(rotX, bodyCy); ctx.rotate(angleInDegrees * Math.PI / 180); ctx.translate(-rotX, -bodyCy);
+
+  if (item === 'orchids') {
+      const pwrap = '#FFA6C9', prib = '#C96884', pgrn = '#5A7D59', pdgrn = '#3A533B', oPink = '#F48FB1', oWhite = '#FFF0F5', oLip = '#AD1457', oYel = '#FDD835';
+      if (view === 'front') {
+        pxRect(ctx, cx - 6, bodyCy - 9, 13, 10, OUTLINE); pxRect(ctx, cx - 8, bodyCy - 6, 17, 7, OUTLINE); pxRect(ctx, cx - 4, bodyCy + 1, 9, 7, OUTLINE); pxRect(ctx, cx - 3, bodyCy + 8, 7, 2, OUTLINE);
+        pxRect(ctx, cx - 7, bodyCy - 5, 15, 6, pdgrn); pxRect(ctx, cx - 5, bodyCy - 8, 11, 4, pdgrn);
+        pxRect(ctx, cx - 7, bodyCy - 7, 2, 4, pgrn); pxRect(ctx, cx - 5, bodyCy - 8, 2, 2, pgrn); pxRect(ctx, cx + 5, bodyCy - 6, 2, 4, pgrn); pxRect(ctx, cx + 3, bodyCy - 8, 2, 2, pgrn);
+        pxRect(ctx, cx - 6, bodyCy - 8, 6, 5, oPink); pxRect(ctx, cx - 5, bodyCy - 7, 4, 3, oWhite); pxRect(ctx, cx - 4, bodyCy - 6, 2, 1, oLip); pxRect(ctx, cx - 3, bodyCy - 6, 1, 1, oYel);
+        pxRect(ctx, cx + 1, bodyCy - 7, 6, 5, oPink); pxRect(ctx, cx + 2, bodyCy - 6, 4, 3, oWhite); pxRect(ctx, cx + 3, bodyCy - 5, 2, 1, oLip); pxRect(ctx, cx + 4, bodyCy - 5, 1, 1, oYel);
+        pxRect(ctx, cx - 3, bodyCy - 3, 6, 5, oPink); pxRect(ctx, cx - 2, bodyCy - 2, 4, 3, oWhite); pxRect(ctx, cx - 1, bodyCy - 1, 2, 1, oLip); pxRect(ctx, cx, bodyCy - 1, 1, 1, oYel);
+        pxRect(ctx, cx - 6, bodyCy, 13, 2, pwrap); pxRect(ctx, cx - 5, bodyCy + 2, 11, 2, pwrap); pxRect(ctx, cx - 4, bodyCy + 4, 9, 2, pwrap); pxRect(ctx, cx - 3, bodyCy + 6, 7, 3, pwrap);
+        pxRect(ctx, cx - 4, bodyCy + 4, 9, 2, prib); pxRect(ctx, cx - 2, bodyCy + 7, 1, 2, prib); pxRect(ctx, cx + 1, bodyCy + 7, 1, 2, prib);
+      } else if (view === 'side') {
+        const sx = cx + 3 - swing;
+        pxRect(ctx, sx - 4, bodyCy - 9, 9, 10, OUTLINE); pxRect(ctx, sx - 5, bodyCy - 6, 11, 7, OUTLINE); pxRect(ctx, sx - 3, bodyCy + 1, 7, 7, OUTLINE);
+        pxRect(ctx, sx - 4, bodyCy - 8, 8, 8, pdgrn); pxRect(ctx, sx - 4, bodyCy - 6, 2, 4, pgrn); pxRect(ctx, sx + 2, bodyCy - 8, 2, 3, pgrn);
+        pxRect(ctx, sx - 3, bodyCy - 8, 5, 5, oPink); pxRect(ctx, sx - 2, bodyCy - 7, 3, 3, oWhite); pxRect(ctx, sx - 1, bodyCy - 6, 1, 1, oLip);
+        pxRect(ctx, sx + 1, bodyCy - 6, 4, 5, oPink); pxRect(ctx, sx + 2, bodyCy - 5, 2, 3, oWhite); pxRect(ctx, sx + 2, bodyCy - 4, 1, 1, oLip);
+        pxRect(ctx, sx - 4, bodyCy - 3, 5, 4, oPink); pxRect(ctx, sx - 3, bodyCy - 2, 3, 2, oWhite); pxRect(ctx, sx - 2, bodyCy - 1, 1, 1, oLip);
+        pxRect(ctx, sx - 4, bodyCy, 9, 2, pwrap); pxRect(ctx, sx - 3, bodyCy + 2, 7, 2, pwrap); pxRect(ctx, sx - 2, bodyCy + 4, 5, 4, pwrap); pxRect(ctx, sx - 3, bodyCy + 3, 7, 2, prib); pxRect(ctx, sx - 1, bodyCy + 6, 1, 2, prib);
+      } else if (view === 'back') {
+        pxRect(ctx, cx - 7, bodyCy - 7, 7, 7, OUTLINE); pxRect(ctx, cx - 6, bodyCy - 6, 5, 5, pdgrn); pxRect(ctx, cx - 6, bodyCy - 4, 2, 3, pgrn);
+        pxRect(ctx, cx - 5, bodyCy - 6, 4, 4, oPink); pxRect(ctx, cx - 7, bodyCy - 3, 4, 3, oPink); pxRect(ctx, cx - 6, bodyCy - 1, 4, 2, pwrap);
+      }
+  } else if (item === 'coffeepot') {
+      const sx = (view === 'side') ? cx + 3 - swing : cx; const cy = bodyCy;
+      const glOut = 'rgba(0, 0, 0, 0.4)', glFill = 'rgba(220, 240, 255, 0.2)', glHigh = 'rgba(255, 255, 255, 0.8)', glMid = 'rgba(255, 255, 255, 0.4)';
+      const cofDark = '#1A0F0A', cofMid = '#361F14', cofTop = '#4A2B1C', pBlk = '#1a1a1a', pHigh = '#555555'; 
+      pxRect(ctx, sx - 11, cy - 8, 5, 2, pBlk); pxRect(ctx, sx - 13, cy - 8, 2, 3, pBlk); pxRect(ctx, sx - 15, cy - 6, 3, 10, pBlk); pxRect(ctx, sx - 13, cy + 4, 3, 2, pBlk); pxRect(ctx, sx - 14, cy - 6, 1, 10, pHigh); 
+      pxRect(ctx, sx - 6, cy - 5, 12, 1, glOut); pxRect(ctx, sx - 8, cy - 4, 2, 1, glOut); pxRect(ctx, sx + 6, cy - 4, 2, 1, glOut); pxRect(ctx, sx - 10, cy - 3, 2, 3, glOut); pxRect(ctx, sx + 8, cy - 3, 2, 3, glOut); pxRect(ctx, sx - 11, cy - 1, 1, 7, glOut); pxRect(ctx, sx + 10, cy - 1, 1, 7, glOut); pxRect(ctx, sx - 10, cy + 7, 2, 2, glOut); pxRect(ctx, sx + 8, cy + 7, 2, 2, glOut); pxRect(ctx, sx - 8, cy + 9, 16, 2, glOut);
+      pxRect(ctx, sx - 5, cy - 4, 10, 1, glFill); pxRect(ctx, sx - 7, cy - 3, 14, 3, glFill); pxRect(ctx, sx - 9, cy, 18, 1, glFill);
+      pxRect(ctx, sx - 9, cy + 1, 18, 1, cofTop); pxRect(ctx, sx - 8, cy + 3, 16, 4, cofDark); pxRect(ctx, sx - 7, cy + 7, 14, 2, cofDark); pxRect(ctx, sx - 9, cy + 2, 18, 1, cofMid); 
+      pxRect(ctx, sx - 8, cy - 1, 2, 4, glHigh); pxRect(ctx, sx - 9, cy + 3, 2, 3, glHigh); pxRect(ctx, sx - 8, cy + 6, 1, 2, glHigh); pxRect(ctx, sx + 7, cy - 1, 3, glMid); pxRect(ctx, sx + 8, cy + 3, 1, 2, glMid); pxRect(ctx, sx - 5, cy + 8, 10, 1, glMid);
+      pxRect(ctx, sx - 7, cy - 7, 14, 2, pBlk); pxRect(ctx, sx - 8, cy - 6, 16, 1, pBlk); pxRect(ctx, sx - 6, cy - 7, 12, 1, pHigh); pxRect(ctx, sx - 5, cy - 11, 10, 4, pBlk); pxRect(ctx, sx + 2, cy - 12, 3, 1, pBlk); 
+      pxRect(ctx, sx + 5, cy - 10, 4, 3, pBlk); pxRect(ctx, sx + 7, cy - 11, 3, 2, pBlk); pxRect(ctx, sx + 9, cy - 12, 2, 2, pBlk);
+  }
+  ctx.restore();
+}
+
+function renderFrontView(type, out, animFrame, idleBob = 0){
+  const walkPhase = animFrame / 8; const cx = CX, headCy = HEAD_CY + idleBob, bodyCy = BODY_CY + idleBob, legBaseY = BODY_CY;
+  const body = type.base, innerColor = type.earInner || DEFAULT_EAR_INNER; const legOffset = walkPhase ? Math.round(Math.sin(walkPhase*Math.PI*2)*1.5) : 0;
+  drawBodyOutlineBox(cx, bodyCy);
+  drawLeg('front', cx - 5, legBaseY + 3 + legOffset, out.shoeStyle, out.shoeColor, out.bottom, out.pantsStyle); drawLeg('front', cx + 1, legBaseY + 3 - legOffset, out.shoeStyle, out.shoeColor, out.bottom, out.pantsStyle);
+  drawTorsoOutfit('front', cx, bodyCy, out); drawArms(cx, bodyCy, out, legOffset);
+  drawEarPx(sctx, 'left', type.ear, body, innerColor, type.earTip, headCy); drawEarPx(sctx, 'right', type.ear, body, innerColor, type.earTip, headCy);
+  drawHeadBase(cx, headCy, body); drawFaceFront(cx, headCy, body); drawHatPx(sctx, out.hat, 'front', cx, headCy); drawHeldItem(sctx, 'front', cx, bodyCy, out.heldItem, 0);
+}
+
+function renderBackView(type, out, animFrame, idleBob = 0){
+  const walkPhase = animFrame / 8; const cx = CX, headCy = HEAD_CY + idleBob, bodyCy = BODY_CY + idleBob, legBaseY = BODY_CY;
+  const body = type.base, tailColor = shade(body, -18); const legOffset = walkPhase ? Math.round(Math.sin(walkPhase*Math.PI*2)*1.5) : 0;
+  drawBodyOutlineBox(cx, bodyCy); drawHeldItem(sctx, 'back', cx, bodyCy, out.heldItem, 0);
+  drawLeg('back', cx - 5, legBaseY + 3 + legOffset, out.shoeStyle, out.shoeColor, out.bottom, out.pantsStyle); drawLeg('back', cx + 1, legBaseY + 3 - legOffset, out.shoeStyle, out.shoeColor, out.bottom, out.pantsStyle);
+  drawTorsoOutfit('back', cx, bodyCy, out); drawArms(cx, bodyCy, out, legOffset);
+  if (type.tail === 'bushy') drawBushyTailBackPx(sctx, tailColor, bodyCy); else drawTailBackPx(sctx, type.tail, tailColor, bodyCy);
+  drawEarPx(sctx, 'left', type.ear, body, body, type.earTip, headCy); drawEarPx(sctx, 'right', type.ear, body, body, type.earTip, headCy);
+  drawHeadBase(cx, headCy, body); drawHatPx(sctx, out.hat, 'back', cx, headCy);
+}
+
+function renderSideView(type, out, animFrame, idleBob = 0){
+  const walkPhase = animFrame / 8; const cx = CX, headCy = HEAD_CY + idleBob, bodyCy = BODY_CY + idleBob, legBaseY = BODY_CY; 
+  const body = type.base, innerColor = type.earInner || DEFAULT_EAR_INNER, tailColor = shade(body, -18); const swing = walkPhase ? Math.round(Math.sin(walkPhase*Math.PI*2)*2) : 0;
+  pxRect(sctx, cx + 1 - swing, bodyCy - 5, 4, 8, OUTLINE); pxRect(sctx, cx + 2 - swing, bodyCy - 4, 2, 4, shade(out.top, -20)); pxRect(sctx, cx + 2 - swing, bodyCy, 2, 2, shade(body, -20));
+  drawLegSide(cx + swing, legBaseY + 3, out.shoeStyle, shade(out.shoeColor, -20), shade(out.bottom, -20), true, out.pantsStyle);
+  if (type.tail !== 'bushy') drawTailPx(sctx, type.tail, tailColor, bodyCy);
+  pxRect(sctx, cx - 4, bodyCy - 6, 8, 11, OUTLINE);
+  if (type.tail === 'bushy') drawBushyTailPx(sctx, tailColor, bodyCy);
+  drawLegSide(cx - 4 - swing, legBaseY + 3, out.shoeStyle, out.shoeColor, out.bottom, false, out.pantsStyle);
+  
+  if (out.outfitStyle === 'gown') { pxRect(sctx, cx - 3, bodyCy - 5, 6, 4, out.top); pxRect(sctx, cx - 5, bodyCy - 2, 10, 1, OUTLINE); pxRect(sctx, cx - 4, bodyCy - 2, 8, 1, shade(out.top, -15)); pxRect(sctx, cx - 6, bodyCy - 1, 12, 2, OUTLINE); pxRect(sctx, cx - 5, bodyCy - 1, 10, 2, out.top); pxRect(sctx, cx - 7, bodyCy + 1, 14, 2, OUTLINE); pxRect(sctx, cx - 6, bodyCy + 1, 12, 2, out.top); pxRect(sctx, cx - 8, bodyCy + 3, 16, 3, OUTLINE); pxRect(sctx, cx - 7, bodyCy + 3, 14, 3, out.top); pxRect(sctx, cx - 9, bodyCy + 6, 18, 3, OUTLINE); pxRect(sctx, cx - 8, bodyCy + 6, 16, 3, out.top); pxRect(sctx, cx - 10, bodyCy + 9, 20, 5, OUTLINE); pxRect(sctx, cx - 9, bodyCy + 9, 18, 4, out.top); }
+  else if (out.outfitStyle === 'kimono') { pxRect(sctx, cx - 6, bodyCy - 1, 11, 14, OUTLINE); pxRect(sctx, cx - 5, bodyCy - 1, 9, 13, out.top); pxRect(sctx, cx - 3, bodyCy - 5, 6, 17, out.top); pxRect(sctx, cx - 4, bodyCy - 2, 8, 4, OUTLINE); pxRect(sctx, cx - 3, bodyCy - 1, 6, 2, '#EFC24D'); pxRect(sctx, cx - 4, bodyCy - 2, 3, 4, '#D2342A'); pxRect(sctx, cx - 2, bodyCy + 1, 1, 11, shade(out.top, -20)); }
+  else if (out.outfitStyle === 'sweater') { pxRect(sctx, cx - 3, bodyCy - 5, 6, 7, out.top); pxRect(sctx, cx - 3, bodyCy + 2, 6, 3, out.bottom); pxRect(sctx, cx - 3, bodyCy + 1, 6, 1, shade(out.top, -30)); for(let i=-2; i<=2; i+=2) pxRect(sctx, cx + i, bodyCy - 5, 1, 6, shade(out.top, -15)); }
+  else if (out.outfitStyle === 'suit') { pxRect(sctx, cx - 3, bodyCy - 5, 6, 8, out.top); pxRect(sctx, cx - 3, bodyCy + 3, 6, 2, out.bottom); pxRect(sctx, cx + 2, bodyCy - 5, 1, 2, '#FFFFFF'); }
+  else { pxRect(sctx, cx - 3, bodyCy - 5, 6, 5, out.top); pxRect(sctx, cx - 1, bodyCy - 5, 2, 5, out.bottom); pxRect(sctx, cx - 3, bodyCy, 6, 5, out.bottom); }
+
+  pxRect(sctx, cx - 4 + swing, bodyCy - 5, 4, 8, OUTLINE);
+  if (out.outfitStyle === 'gown') { pxEllipse(sctx, cx - 3 + swing, bodyCy - 4, 4.5, 4.5, OUTLINE); pxEllipse(sctx, cx - 3 + swing, bodyCy - 4, 3.5, 3.5, out.top); pxRect(sctx, cx - 3 + swing, bodyCy, 2, 2, body); }
+  else if (out.outfitStyle === 'kimono') { pxRect(sctx, cx - 3 + swing, bodyCy - 4, 2, 7, out.top); pxRect(sctx, cx - 4 + swing, bodyCy - 2, 2, 6, out.top); pxRect(sctx, cx - 3 + swing, bodyCy + 3, 2, 2, body); }
+  else if (out.outfitStyle === 'sweater') { pxRect(sctx, cx - 3 + swing, bodyCy - 4, 2, 6, out.top); pxRect(sctx, cx - 3 + swing, bodyCy + 3, 2, 1, body); }
+  else if (out.outfitStyle === 'suit') { pxRect(sctx, cx - 3 + swing, bodyCy - 4, 2, 6, out.top); pxRect(sctx, cx - 3 + swing, bodyCy + 2, 2, 2, body); }
+  else { pxRect(sctx, cx - 3 + swing, bodyCy - 4, 2, 4, out.top); pxRect(sctx, cx - 3 + swing, bodyCy, 2, 2, body); }
+
+  drawEarSidePx(sctx, type.ear, body, innerColor, type.earTip, true, headCy); 
+  pxRect(sctx, cx - 3, headCy - 6, 9, 13, OUTLINE); pxRect(sctx, cx - 4, headCy - 5, 11, 11, OUTLINE); pxRect(sctx, cx - 2, headCy - 5, 7, 11, body); pxRect(sctx, cx - 3, headCy - 4, 9, 9, body);
+  pxRect(sctx, cx + 4, headCy, 2, 3, OUTLINE); pxRect(sctx, cx + 6, headCy + 3, 1, 1, shade(body, -30)); pxRect(sctx, cx - 1, headCy + 2, 2, 1, '#F0AFBE'); 
+  drawEarSidePx(sctx, type.ear, body, innerColor, type.earTip, false, headCy); drawHatPx(sctx, out.hat, 'side', cx - 1, headCy); drawHeldItem(sctx, 'side', cx, bodyCy, out.heldItem, swing);
+}
+
+function renderCritterSprite(type, out, view, animFrame, idleBob = 0){
+  sctx.clearRect(0, 0, SPRITE_W, SPRITE_H);
+  if (view === 'up') renderBackView(type, out, animFrame, idleBob); else if (view === 'side') renderSideView(type, out, animFrame, idleBob); else renderFrontView(type, out, animFrame, idleBob);
+}
+function getCachedCritterCanvas(type, out, view, walkTimer, idleBob) {
+    let animFrame = walkTimer === 0 ? 0 : Math.floor((walkTimer % 1) * 8); const cacheKey = `${getOutfitHash(type, out)}_${view}_${animFrame}_${idleBob}`;
+    if (!critterCache[cacheKey]) {
+        renderCritterSprite(type, out, view, animFrame, idleBob); const cacheCvs = document.createElement('canvas');
+        cacheCvs.width = SPRITE_W; cacheCvs.height = SPRITE_H; cacheCvs.getContext('2d').drawImage(spriteCanvas, 0, 0); critterCache[cacheKey] = cacheCvs;
+    }
+    return critterCache[cacheKey];
+}
+
+function drawCritter(ctx, cx, cy, scale, type, out, direction, walkTimer, idleBob = 0){
+  let view = 'down', flip = 1; if (direction === 'up') view = 'up'; else if (direction === 'left'){ view = 'side'; flip = -1; } else if (direction === 'right'){ view = 'side'; flip = 1; }
+  const cachedCanvas = getCachedCritterCanvas(type, out, view, walkTimer, idleBob);
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = 'rgba(100, 80, 60, 0.4)'; ctx.beginPath(); ctx.ellipse(cx, cy, 14 * scale, 4 * scale, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(cx, cy); ctx.scale(flip, 1); ctx.drawImage(cachedCanvas, -CX*scale, -71*scale, SPRITE_W*scale, SPRITE_H*scale); ctx.restore();
+}
+
+function drawCassette(ctx, time) {
+    if (!ctx) return; ctx.clearRect(0, 0, 96, 64); ctx.save(); ctx.scale(1.5, 1.5);
+    const OUTLINE = '#5A2E12', BODY = '#FFA6C9', LABEL = '#FFFFFF', STRIPE = '#C96884', TAPE = '#1a1c23';
+    pxRect(ctx, 4, 2, 56, 38, OUTLINE); pxRect(ctx, 2, 4, 60, 34, OUTLINE); pxRect(ctx, 4, 4, 56, 34, BODY);
+    pxEllipse(ctx, 18, 18, 14, 14, TAPE); pxEllipse(ctx, 46, 18, 8, 8, TAPE); pxRect(ctx, 18, 15, 28, 6, TAPE);
+    pxRect(ctx, 6, 8, 52, 22, LABEL); pxRect(ctx, 6, 10, 52, 2, STRIPE); pxRect(ctx, 6, 26, 52, 2, STRIPE);
+    pxRect(ctx, 22, 13, 20, 10, OUTLINE); pxRect(ctx, 24, 15, 16, 6, TAPE); 
+    const angle = time * 0.003;
+    function drawSpool(cx, cy) {
+        pxEllipse(ctx, cx, cy, 6, 6, OUTLINE); pxEllipse(ctx, cx, cy, 4, 4, '#FFFFFF');
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle); ctx.fillStyle = OUTLINE;
+        for(let i=0; i<6; i++) { ctx.fillRect(-1, -4, 2, 2); ctx.rotate(Math.PI / 3); }
+        ctx.restore(); pxEllipse(ctx, cx, cy, 1.5, 1.5, BODY);
+    }
+    drawSpool(18, 18); drawSpool(46, 18);
+    pxRect(ctx, 10, 32, 44, 8, OUTLINE); pxRect(ctx, 12, 32, 40, 6, BODY); pxRect(ctx, 16, 34, 4, 2, OUTLINE); pxRect(ctx, 44, 34, 4, 2, OUTLINE); pxRect(ctx, 30, 34, 4, 2, OUTLINE);
+    pxRect(ctx, 6, 4, 2, 2, OUTLINE); pxRect(ctx, 56, 4, 2, 2, OUTLINE); pxRect(ctx, 6, 36, 2, 2, OUTLINE); pxRect(ctx, 56, 36, 2, 2, OUTLINE);
+    ctx.restore();
+}
+
+const directions = ['down', 'right', 'up', 'left'];
+
+function animateUI() {
+  if (state.gameActive) return; 
+  const time = performance.now(); const globalBob = Math.sin((time / 800) * Math.PI) > 0 ? 1 : 0;
+  const cCanvas = document.getElementById('cassetteCanvas');
+  if (cCanvas && els.loadingScreen.style.display !== 'none') { const cCtx = cCanvas.getContext('2d'); cCtx.imageSmoothingEnabled = false; drawCassette(cCtx, time); }
+  if (globalBob !== state.lastIdleBob) { state.lastIdleBob = globalBob; if (els.appRoot.style.display === 'flex') renderPortrait(); }
+  requestAnimationFrame(animateUI);
+}
+animateUI(); 
+
+function renderPortrait(){
+  pctxMain.clearRect(0, 0, pctxMain.canvas.width, pctxMain.canvas.height);
+  drawCritter(pctxMain, 70, 220, 3.4, selectedSpecies, outfit, directions[state.previewDirIndex], 0, Math.max(0, state.lastIdleBob));
+}
+
+document.getElementById('rotLeft').addEventListener('click', () => { sfx.playUI(); state.previewDirIndex = (state.previewDirIndex - 1 + 4) % 4; renderPortrait(); });
+document.getElementById('rotRight').addEventListener('click', () => { sfx.playUI(); state.previewDirIndex = (state.previewDirIndex + 1) % 4; renderPortrait(); });
+
+function enterCreatorScreen(idx) {
+  critterCycle.setIndex(idx); els.speciesSelectScreen.style.opacity = '0';
+  setTimeout(() => { els.speciesSelectScreen.style.display = 'none'; els.appRoot.style.display = 'flex'; void els.appRoot.offsetWidth; els.appRoot.style.opacity = '1'; renderPortrait(); }, 500);
+}
+
+function renderSpeciesGrid() {
+  const grid = document.getElementById('speciesGrid'); if (grid.children.length > 0) return; 
+  CRITTER_TYPES.forEach((species, idx) => {
+    const card = document.createElement('div'); card.className = 'species-card';
+    card.innerHTML = `<canvas width="96" height="144"></canvas><span class="species-name">${species.name}</span>`; grid.appendChild(card);
+    const ctx = card.querySelector('canvas').getContext('2d'); ctx.imageSmoothingEnabled = false;
+    const previewOut = { hat:'none', outfitStyle:'jumpsuit', pantsStyle:'pants', top:'#5C8C3E', bottom:'#31568A', shoeStyle:'boots', shoeColor:'#3E2C23', heldItem: null };
+    drawCritter(ctx, 48, 110, 2.4, species, previewOut, 'down', 0);
+    card.addEventListener('click', () => { sfx.playUISelect(); enterCreatorScreen(idx); });
+  });
+}
+
+document.getElementById('cassetteCanvas').addEventListener('click', () => {
+  sfx.init(); sfx.playUISelect();
+  const bgm = document.getElementById('bgMusic'); bgm.volume = 0.35; bgm.play().catch(e => console.log("Audio play failed:", e));
+  els.loadingScreen.style.opacity = '0';
+  setTimeout(() => { els.loadingScreen.style.display = 'none'; els.speciesSelectScreen.style.display = 'flex'; void els.speciesSelectScreen.offsetWidth; els.speciesSelectScreen.style.opacity = '1'; renderSpeciesGrid(); }, 500);
+});
+
+function makeCycle(leftId, rightId, labelId, items, onChange){
+  let index = 0; const leftBtn = document.getElementById(leftId), rightBtn = document.getElementById(rightId), label = document.getElementById(labelId);
+  function render(){ label.textContent = items[index].label || items[index].name; onChange(items[index], index); }
+  leftBtn.addEventListener('click', () => { sfx.playUI(); index = (index - 1 + items.length) % items.length; render(); });
+  rightBtn.addEventListener('click', () => { sfx.playUI(); index = (index + 1) % items.length; render(); });
+  render(); return { setIndex(i){ index = ((i % items.length) + items.length) % items.length; render(); } };
+}
+
+const critterCycle = makeCycle('critterLeft','critterRight','critterLabel', CRITTER_TYPES, item => { selectedSpecies = item; renderPortrait(); });
+makeCycle('hatLeft','hatRight','hatLabel', HATS, item => { outfit.hat = item.id; renderPortrait(); });
+makeCycle('outfitLeft','outfitRight','outfitLabel', OUTFITS, item => { outfit.outfitStyle = item.id; document.getElementById('pantsColorBlock').classList.toggle('disabled', item.id === 'gown' || item.id === 'kimono'); renderPortrait(); });
+makeCycle('pantsLeft','pantsRight','pantsLabel', PANTS, item => { outfit.pantsStyle = item.id; renderPortrait(); });
+makeCycle('shoeLeft','shoeRight','shoeLabel', SHOES, item => { outfit.shoeStyle = item.id; renderPortrait(); });
+
+function buildColorSliders(containerId, initialHex, onChange){
+  const container = document.getElementById(containerId); container.innerHTML = ''; const cState = hexToRgb(initialHex);
+  ['r','g','b'].forEach(ch => {
+    const row = document.createElement('div'); row.className = 'slider-row';
+    const input = document.createElement('input'); input.type = 'range'; input.min = 0; input.max = 255; input.value = cState[ch]; input.className = 'ch-' + ch;
+    const valText = document.createElement('div'); valText.className = 'color-val'; valText.textContent = cState[ch];
+    input.addEventListener('input', () => { cState[ch] = parseInt(input.value, 10); valText.textContent = cState[ch]; onChange(rgbToHex(cState.r, cState.g, cState.b)); renderPortrait(); });
+    row.appendChild(input); row.appendChild(valText); container.appendChild(row);
+  });
+}
+buildColorSliders('shirtSliders', outfit.top, hex => outfit.top = hex); buildColorSliders('pantsSliders', outfit.bottom, hex => outfit.bottom = hex);
+document.getElementById('fieldName').addEventListener('input', e => profile.name = e.target.value.trim());
+
+document.getElementById('downloadPortraitBtn').addEventListener('click', () => {
+  sfx.playUISelect(); const link = document.createElement('a');
+  link.download = `${(profile.name || selectedSpecies.name || 'critter').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
+  link.href = pctxMain.canvas.toDataURL('image/png'); link.click();
+});
+document.getElementById('downloadCoupleBtn').addEventListener('click', () => {
+  sfx.playUISelect();
+  const canvas = document.createElement('canvas'); canvas.width = 400; canvas.height = 400; const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#FFA6C9'; ctx.fillRect(0, 0, 400, 400);
+  ctx.strokeStyle = '#C96884'; ctx.lineWidth = 10; ctx.strokeRect(10, 10, 380, 380); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 4; ctx.strokeRect(15, 15, 370, 370);
+  ctx.font = '24px "Silkscreen", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#FFFFFF'; ctx.shadowColor = '#C96884'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+  ctx.fillText(`${profile.name || 'Dani'} 💘 Nesto`, 200, 60); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+  ctx.fillStyle = '#D2342A'; const hx = 200, hy = 120, s = 4;
+  [[-2, -2, 2, 2], [1, -2, 2, 2], [-3, 0, 7, 2], [-2, 2, 5, 2], [-1, 4, 3, 2], [0, 6, 1, 2]].forEach(r => ctx.fillRect(hx + r[0]*s, hy + r[1]*s, r[2]*s, r[3]*s));
+  const prevHeld = npcObj.outfit.heldItem; npcObj.outfit.heldItem = null;
+  drawCritter(ctx, 164, 320, 4.5, selectedSpecies, outfit, 'down', 0, 0); drawCritter(ctx, 236, 320, 4.5, npcObj.type, npcObj.outfit, 'down', 0, 0);
+  npcObj.outfit.heldItem = prevHeld;
+  const link = document.createElement('a'); link.download = `us_holding_hands.png`; link.href = canvas.toDataURL('image/png'); link.click();
+});
+
+let player = { x: 0, y: 0, speed: 4, dir: 'right', moving: false, walkTimer: 0 };
+const MAILBOX_RECT = { x: 1170, y: 245, w: 55, h: 90 };
+const BG_NATIVE_W = 1920, BG_NATIVE_H = 1080;
+
+const OBSTACLES = [
+  { x: 565, y: 0, w: 590, h: 400, label: 'house' }, { x: 205, y: 205, w: 380, h: 190, label: 'fence / beehives' },
+  { x: 245, y: 85, w: 100, h: 85, label: 'rock pile' }, { x: 0, y: 0, w: 265, h: 230, label: 'tree (top-left)' },
+  { x: 205, y: 250, w: 45, h: 830, label: 'trellis post' }, { x: 1170, y: 245, w: 55, h: 90, label: 'mailbox' },
+  { x: 1285, y: 145, w: 105, h: 145, label: 'barrel' }, { x: 1385, y: 165, w: 110, h: 120, label: 'crate' },
+  { x: 1390, y: 480, w: 240, h: 305, label: 'well' }, { x: 1475, y: 890, w: 150, h: 140, label: 'stump' },
+  { x: 255, y: 960, w: 1035, h: 120, label: 'bottom fence' }, { x: 0, y: 600, w: 270, h: 480, label: 'left tree' },
+  { x: 1630, y: 400, w: 290, h: 680, label: 'right bushes' }, { x: 1750, y: 0, w: 170, h: 150, label: 'top-right trees' },
+  // World bounds to prevent walking off the map forever
+  { x: -100, y: -100, w: BG_NATIVE_W + 200, h: 100, label: 'world top' },
+  { x: -100, y: BG_NATIVE_H, w: BG_NATIVE_W + 200, h: 100, label: 'world bottom' },
+  { x: -100, y: -100, w: 100, h: BG_NATIVE_H + 200, label: 'world left' },
+  { x: BG_NATIVE_W, y: -100, w: 100, h: BG_NATIVE_H + 200, label: 'world right' }
+];
+
+const DOOR_RECT = { x: 895, y: 285, w: 80, h: 115 }; let EXIT_RECT = { x: 895, y: 900, w: 80, h: 110 };
+const OBSTACLES_INSIDE = [];
+
+function updateInteriorObstacles() {
+  const w = (bgImageInside.complete && bgImageInside.naturalWidth > 0) ? bgImageInside.naturalWidth : 800;
+  const h = (bgImageInside.complete && bgImageInside.naturalHeight > 0) ? bgImageInside.naturalHeight : 600;
+  const leftBound = w * 0.10, rightBound = w * 0.10, topBound = h * 0.12, bottomBound = h * 0.16; 
+  EXIT_RECT.w = w * 0.115; EXIT_RECT.h = 60; EXIT_RECT.x = w * 0.485; EXIT_RECT.y = h - bottomBound; 
+  
+  OBSTACLES_INSIDE.length = 0;
+  OBSTACLES_INSIDE.push(
+    { x: 0, y: 0, w: w, h: topBound, label: 'north wall' }, { x: 0, y: 0, w: leftBound, h: h, label: 'west wall' },
+    { x: w - rightBound, y: 0, w: rightBound, h: h, label: 'east wall' }, { x: 0, y: h - bottomBound, w: EXIT_RECT.x, h: bottomBound, label: 'south wall (left)' },
+    { x: EXIT_RECT.x + EXIT_RECT.w, y: h - bottomBound, w: w - (EXIT_RECT.x + EXIT_RECT.w), h: bottomBound, label: 'south wall (right)' },
+    { x: EXIT_RECT.x, y: EXIT_RECT.y + EXIT_RECT.h, w: EXIT_RECT.w, h: 200, label: 'void blocker' },
+    { x: w * 0.14, y: h * 0.58, w: w * 0.31, h: h * 0.16, label: 'sitting area' }, { x: w * 0.615, y: topBound, w: w * 0.175, h: h * 0.46, label: 'bed' }
+  );
+  npcObj.nativeX = w * 0.55; npcObj.nativeY = h * 0.44;
+  OBSTACLES_INSIDE.push({ x: npcObj.nativeX - 25, y: npcObj.nativeY - 15, w: 50, h: 30, label: 'npc' });
+}
+
+function activeObstacles() { return state.scene === 'inside' ? OBSTACLES_INSIDE : OBSTACLES; }
+
+function updateBgTransform() {
+  if (state.scene === 'outside') {
+    bgMetrics.scale = Math.max(els.gameCanvas.width / BG_NATIVE_W, els.gameCanvas.height / BG_NATIVE_H);
+    bgMetrics.offsetX = (els.gameCanvas.width - (BG_NATIVE_W * bgMetrics.scale)) / 2;
+    bgMetrics.offsetY = (els.gameCanvas.height - (BG_NATIVE_H * bgMetrics.scale)) / 2;
+  } else {
+    const w = (bgImageInside.complete && bgImageInside.naturalWidth > 0) ? bgImageInside.naturalWidth : 800;
+    const h = (bgImageInside.complete && bgImageInside.naturalHeight > 0) ? bgImageInside.naturalHeight : 600;
+    bgMetrics.scale = Math.min(els.gameCanvas.width / w, (els.gameCanvas.height * 0.9) / h);
+    bgMetrics.scale = Math.max(1.5, Math.min(bgMetrics.scale, 5));
+    bgMetrics.offsetX = (els.gameCanvas.width - (w * bgMetrics.scale)) / 2;
+    bgMetrics.offsetY = (els.gameCanvas.height - (h * bgMetrics.scale)) / 2;
+  }
+}
+
+function isBlocked(px, py) {
+  // Dynamically scale the collision box so players don't get stuck far from walls when zoomed in
+  const scaledHalfW = 20 * bgMetrics.scale;
+  const scaledHalfH = 9 * bgMetrics.scale;
+  const boxX = px - scaledHalfW, boxY = py - scaledHalfH;
+  const boxW = scaledHalfW * 2, boxH = scaledHalfH * 2;
+  
+  return activeObstacles().some(obs => {
+    const sx = bgMetrics.offsetX + obs.x * bgMetrics.scale, sy = bgMetrics.offsetY + obs.y * bgMetrics.scale;
+    const sw = obs.w * bgMetrics.scale, sh = obs.h * bgMetrics.scale;
+    return boxX < sx + sw && boxX + boxW > sx && boxY < sy + sh && boxY + boxH > sy;
+  });
+}
+
+const bgImage = new Image(); bgImage.src = 'SV_BG_FD.png';
+const bgImageInside = new Image(); let processedInsideCanvas = null;
+
+function processBgInside() {
+    if (processedInsideCanvas) return;
+    const w = bgImageInside.naturalWidth, h = bgImageInside.naturalHeight; if (!w || !h) return;
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(bgImageInside, 0, 0);
+    const imgData = ctx.getImageData(0, 0, w, h); const data = imgData.data; const stack = [];
+    for(let x = 0; x < w; x++) { stack.push(x, 0, x, h-1); } for(let y = 0; y < h; y++) { stack.push(0, y, w-1, y); }
+    while(stack.length > 0) {
+        const y = stack.pop(), x = stack.pop();
+        if (x < 0 || x >= w || y < 0 || y >= h) continue;
+        const idx = (y * w + x) * 4; if (data[idx+3] === 0) continue; 
+        if (data[idx] < 30 && data[idx+1] < 30 && data[idx+2] < 30) { data[idx+3] = 0; stack.push(x+1, y, x-1, y, x, y+1, x, y-1); }
+    }
+    ctx.putImageData(imgData, 0, 0); processedInsideCanvas = canvas;
+}
+bgImageInside.onload = processBgInside; bgImageInside.src = 'SV_INTERIOR.jpg';
+if (bgImageInside.complete) processBgInside();
+
+function initGame() {
+  state.gameActive = true; state.scene = 'outside'; window.dispatchEvent(new Event('resize'));
+  player.x = winSize.w * 0.5; player.y = winSize.h * 0.6;
+  document.body.classList.add('game-active');
+
+  const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  if (isTouchDevice) document.getElementById('mobileControls').style.display = 'block';
+
+  requestAnimationFrame(gameLoop);
+}
+
+function enterHouse() {
+  if (state.scene !== 'outside' || state.isMailOpen) return;
+  sfx.playDoor(); completeQuest('house'); state.target = null;
+  els.gameCanvas.style.filter = 'blur(10px) brightness(0.4)';
+  setTimeout(() => {
+    state.scene = 'inside'; els.minigameScreen.style.background = '#000000'; updateInteriorObstacles(); updateBgTransform();
+    player.x = bgMetrics.offsetX + (EXIT_RECT.x + EXIT_RECT.w / 2) * bgMetrics.scale; player.y = bgMetrics.offsetY + (EXIT_RECT.y - 20) * bgMetrics.scale; player.dir = 'up';
+    els.gameCanvas.style.filter = 'saturate(1.2) contrast(1.1) brightness(1.05)';
+  }, 300);
+}
+
+function exitHouse() {
+  if (state.scene !== 'inside' || state.isMailOpen) return;
+  sfx.playDoor(); state.target = null;
+  els.gameCanvas.style.filter = 'blur(10px) brightness(0.4)';
+  setTimeout(() => {
+    state.scene = 'outside'; els.minigameScreen.style.background = ''; updateBgTransform();
+    player.x = bgMetrics.offsetX + (DOOR_RECT.x + DOOR_RECT.w / 2) * bgMetrics.scale; player.y = bgMetrics.offsetY + (DOOR_RECT.y + DOOR_RECT.h + 20) * bgMetrics.scale; player.dir = 'down';
+    els.gameCanvas.style.filter = 'saturate(1.2) contrast(1.1) brightness(1.05)';
+  }, 300);
+}
+
+function gameLoop() {
+  if (!state.gameActive) return;
+  gctx.clearRect(0, 0, els.gameCanvas.width, els.gameCanvas.height);
+
+  const activeBg = state.scene === 'inside' ? (processedInsideCanvas || bgImageInside) : bgImage;
+  const bgW = activeBg.naturalWidth || activeBg.width, bgH = activeBg.naturalHeight || activeBg.height;
+  if (bgW > 0 && bgH > 0) { const w = bgW * bgMetrics.scale, h = bgH * bgMetrics.scale; gctx.drawImage(activeBg, bgMetrics.offsetX, bgMetrics.offsetY, w, h); }
+
+  let mbX = 0, mbY = 0, doorX = 0, doorY = 0, exitX = 0, exitY = 0;
+  if (state.scene === 'outside') {
+    mbX = bgMetrics.offsetX + (MAILBOX_RECT.x + MAILBOX_RECT.w / 2) * bgMetrics.scale; mbY = bgMetrics.offsetY + (MAILBOX_RECT.y + MAILBOX_RECT.h) * bgMetrics.scale;
+    state.isNearMailbox = Math.hypot(player.x - mbX, player.y - mbY) < (120 * bgMetrics.scale);
+    doorX = bgMetrics.offsetX + (DOOR_RECT.x + DOOR_RECT.w / 2) * bgMetrics.scale; doorY = bgMetrics.offsetY + (DOOR_RECT.y + DOOR_RECT.h) * bgMetrics.scale;
+    state.isNearDoor = Math.hypot(player.x - doorX, player.y - doorY) < (130 * bgMetrics.scale);
+    state.isNearExit = false; state.isNearNpc = false;
+  } else {
+    state.isNearMailbox = false; state.isNearDoor = false;
+    exitX = bgMetrics.offsetX + (EXIT_RECT.x + EXIT_RECT.w / 2) * bgMetrics.scale; exitY = bgMetrics.offsetY + (EXIT_RECT.y + EXIT_RECT.h) * bgMetrics.scale;
+    state.isNearExit = Math.hypot(player.x - exitX, player.y - exitY) < (130 * bgMetrics.scale);
+    npcX = bgMetrics.offsetX + npcObj.nativeX * bgMetrics.scale; npcY = bgMetrics.offsetY + npcObj.nativeY * bgMetrics.scale;
+    state.isNearNpc = Math.hypot(player.x - npcX, player.y - npcY) < (130 * bgMetrics.scale);
+  }
+
+  let dx = 0, dy = 0;
+  const currentSpeed = player.speed * bgMetrics.scale; // Scale player speed to screen size
+
+  if (!state.isMailOpen && !state.isDialogueOpen && !state.isItemGetOpen) {
+    if (state.keys['ArrowUp'] || state.keys['w']) dy -= 1;
+    if (state.keys['ArrowDown'] || state.keys['s']) dy += 1;
+    if (state.keys['ArrowLeft'] || state.keys['a']) dx -= 1;
+    if (state.keys['ArrowRight'] || state.keys['d']) dx += 1;
+    if (state.target) {
+      const tx = state.target.x - player.x, ty = state.target.y - player.y; const distToTarget = Math.hypot(tx, ty);
+      if (distToTarget > currentSpeed) { dx = tx / distToTarget; dy = ty / distToTarget; } else state.target = null;
+    }
+  }
+
+  player.moving = (dx !== 0 || dy !== 0);
+  if (player.moving) {
+    const length = Math.hypot(dx, dy); const stepX = (dx / length) * currentSpeed, stepY = (dy / length) * currentSpeed; let moved = false;
+    if (!isBlocked(player.x + stepX, player.y)) { player.x += stepX; moved = true; } else state.target = null;
+    if (!isBlocked(player.x, player.y + stepY)) { player.y += stepY; moved = true; } else state.target = null;
+    if (moved) { let prevTimer = player.walkTimer; player.walkTimer += 0.08; if (Math.floor(prevTimer * 2) !== Math.floor(player.walkTimer * 2)) sfx.playStep(); }
+    if (Math.abs(dx) > Math.abs(dy)) player.dir = dx > 0 ? 'right' : 'left'; else player.dir = dy > 0 ? 'down' : 'up';
+  } else player.walkTimer = 0;
+
+  const globalBob = Math.sin((performance.now() / 800) * Math.PI) > 0 ? 1 : 0;
+  
+  /* Fixed: Dynamic Character Scaling to match zoom level */
+  const charScale = 2.8 * bgMetrics.scale;
+  
+  if (state.scene === 'inside') {
+      if (state.isNearNpc) {
+          if (Math.abs(player.x - npcX) > Math.abs(player.y - npcY)) npcObj.dir = player.x > npcX ? 'right' : 'left'; else npcObj.dir = player.y > npcY ? 'down' : 'up';
+      } else npcObj.dir = 'down';
+      drawCritter(gctx, npcX, npcY, charScale, npcObj.type, npcObj.outfit, npcObj.dir, 0, globalBob);
+  }
+  
+  drawCritter(gctx, player.x, player.y, charScale, selectedSpecies, outfit, player.dir, player.walkTimer, player.moving ? 0 : globalBob);
+
+  if (state.isNearMailbox && !state.isMailOpen) drawSpeechBubble(gctx, mbX, bgMetrics.offsetY + MAILBOX_RECT.y * bgMetrics.scale - 20, "Check Mail [E]");
+  if (state.isNearDoor) drawSpeechBubble(gctx, doorX, bgMetrics.offsetY + DOOR_RECT.y * bgMetrics.scale - 125, "Enter House [E]");
+  if (state.isNearExit) drawSpeechBubble(gctx, exitX, bgMetrics.offsetY + EXIT_RECT.y * bgMetrics.scale - 0, "Exit [E]");
+  if (state.isNearNpc && !state.isDialogueOpen) drawSpeechBubble(gctx, npcX, npcY - (30 * charScale), "Talk [E]");
+
+  requestAnimationFrame(gameLoop);
+}
+
+function drawSpeechBubble(ctx, x, y, text) {
+  ctx.save(); ctx.font = '12px "Silkscreen", monospace'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  const w = ctx.measureText(text).width + 16, h = 32; const bx = Math.round(x - w / 2), by = Math.round(y - h - 10 + Math.round(Math.sin(performance.now() / 200) * 3));
+  ctx.fillStyle = '#2b1c14'; ctx.fillRect(bx - 2, by - 2, w + 4, h + 4); ctx.fillRect(bx + Math.round(w/2) - 4, by + h, 8, 6); 
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(bx, by, w, h); ctx.fillRect(bx + Math.round(w/2) - 2, by + h, 4, 4); 
+  ctx.fillStyle = '#2b1c14'; ctx.fillText(text, bx + w/2, by + h/2); ctx.restore();
+}
+
+const FLOWER_IMG_COUNT = 16; const FLOWER_FALLBACK_COLORS = ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#e8baff', '#ffbaf2', '#ffc4c4', '#fff5c4', '#c4ffcf', '#c4f0ff', '#dbc4ff', '#ffc4eb', '#ffd1dc', '#d1ffdc', '#d1e8ff'];
+const preRenderedFlowers = [];
+for (let i = 0; i < FLOWER_IMG_COUNT; i++) {
+  const c = document.createElement('canvas'); c.width = 120; c.height = 120; const ctx = c.getContext('2d'); ctx.translate(60, 60); const size = 110;
+  ctx.beginPath(); ctx.moveTo(0, -size / 2); ctx.quadraticCurveTo(size * 0.3, -size * 0.2, size / 2, 0); ctx.quadraticCurveTo(size * 0.3, size * 0.2, 0, size / 2); ctx.quadraticCurveTo(-size * 0.3, size * 0.2, -size / 2, 0); ctx.quadraticCurveTo(-size * 0.3, -size * 0.2, 0, -size / 2);
+  ctx.fillStyle = FLOWER_FALLBACK_COLORS[i % FLOWER_FALLBACK_COLORS.length]; ctx.fill(); ctx.beginPath(); ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2); ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = 0.85; ctx.fill();
+  preRenderedFlowers.push(c);
+}
+const flowerImgs = Array.from({length: FLOWER_IMG_COUNT}, (_, i) => { const img = new Image(); img.src = `flower${(i % FLOWER_IMG_COUNT) + 1}.png`; img.onerror = () => { img.failed = true; }; return img; });
+const ftctx = els.flowerTunnelCanvas.getContext('2d'); const TUNNEL_FOCAL = 300; const TRAIL_DEPTH = 240; 
+
+function runFlowerTunnel(durationMs, onTunnelDone) {
+  sfx.playTunnel(); els.flowerTunnelCanvas.style.display = 'block'; els.flowerTunnelCanvas.style.opacity = '1'; els.flowerTunnelCanvas.style.transition = 'none';
+  let tunnelParticles = []; const startTime = performance.now(); let swirlAngle = 0; const FLASH_END_PROGRESS = 0.07; 
+  function frame(now) {
+    const elapsed = now - startTime; const progress = Math.min(1, elapsed / durationMs); const speed = 6 + progress * 20; swirlAngle += 0.002 + progress * 0.007;
+    const cx = els.flowerTunnelCanvas.width / 2, cy = els.flowerTunnelCanvas.height / 2;
+    ftctx.clearRect(0, 0, els.flowerTunnelCanvas.width, els.flowerTunnelCanvas.height);
+
+    if (progress < FLASH_END_PROGRESS) {
+      const fp = progress / FLASH_END_PROGRESS; const flashAlpha = Math.sin(fp * Math.PI); const maxLen = Math.max(els.flowerTunnelCanvas.width, els.flowerTunnelCanvas.height) * 0.7; const rayLen = maxLen * Math.min(1, fp * 2.2);
+      ftctx.save(); ftctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 36; i++) {
+        const a = (i / 36) * Math.PI * 2 + swirlAngle * 3; const x2 = cx + Math.cos(a) * rayLen; const y2 = cy + Math.sin(a) * rayLen;
+        const grad = ftctx.createLinearGradient(cx, cy, x2, y2); grad.addColorStop(0, `rgba(255,255,255,${flashAlpha})`); grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ftctx.strokeStyle = grad; ftctx.lineWidth = 1.5 + flashAlpha * 2; ftctx.beginPath(); ftctx.moveTo(cx, cy); ftctx.lineTo(x2, y2); ftctx.stroke();
+      }
+      const glowR = 50 + flashAlpha * 130; const glow = ftctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+      glow.addColorStop(0, `rgba(255,255,255,${flashAlpha})`); glow.addColorStop(1, 'rgba(255,255,255,0)'); ftctx.fillStyle = glow; ftctx.beginPath(); ftctx.arc(cx, cy, glowR, 0, Math.PI * 2); ftctx.fill(); ftctx.restore();
+    }
+    if (progress < 0.8) {
+       const spawnCount = Math.floor(5 * Math.sin((progress / 0.8) * Math.PI)) + (Math.random() < ((5 * Math.sin((progress / 0.8) * Math.PI)) % 1) ? 1 : 0);
+       for (let i = 0; i < spawnCount; i++) {
+         const spawnZ = 1400 + Math.random() * 400; const imgIdx = Math.floor(Math.random() * FLOWER_IMG_COUNT);
+         tunnelParticles.push({ angle: Math.random() * Math.PI * 2, baseRadius: 30 + Math.random() * 200, z: spawnZ, spawnZ: spawnZ, size: 40 + Math.random() * 50, spin: (Math.random() - 0.5) * 0.05, rot: Math.random() * 360, imgIdx: imgIdx, color: FLOWER_FALLBACK_COLORS[imgIdx % FLOWER_FALLBACK_COLORS.length] });
+       }
+    }
+    let aliveParticles = [];
+    tunnelParticles.sort((a, b) => b.z - a.z).forEach(p => {
+      p.z -= speed;
+      if (p.z > 20) {
+        aliveParticles.push(p); const scale = TUNNEL_FOCAL / p.z; const angle = p.angle + swirlAngle; const x = cx + Math.cos(angle) * p.baseRadius * scale, y = cy + Math.sin(angle) * p.baseRadius * scale; const drawSize = p.size * scale;
+        if (drawSize < 1.5) return;
+        const headAlpha = Math.max(0, Math.min(1, scale * 0.9)); const trailZ = Math.min(p.spawnZ, p.z + TRAIL_DEPTH); const trailScale = TUNNEL_FOCAL / trailZ; const tx = cx + Math.cos(angle) * p.baseRadius * trailScale, ty = cy + Math.sin(angle) * p.baseRadius * trailScale;
+        ftctx.save();
+        for (let s = 0; s < 7; s++) { const t = s / 7; const sx = tx + (x - tx) * t, sy = ty + (y - ty) * t; const r = Math.max(0.6, (drawSize * 0.35) * t); ftctx.globalAlpha = headAlpha * t * t * 0.6; ftctx.fillStyle = p.color; ftctx.beginPath(); ftctx.arc(sx, sy, r, 0, Math.PI * 2); ftctx.fill(); }
+        ftctx.restore(); ftctx.save(); ftctx.globalAlpha = headAlpha; ftctx.translate(x, y); ftctx.rotate((p.rot + elapsed * p.spin) * Math.PI / 180);
+        const img = flowerImgs[p.imgIdx]; if (img && img.complete && !img.failed && img.naturalWidth > 0) { ftctx.drawImage(img, -drawSize / 2, -drawSize / 2, drawSize, drawSize); } else { ftctx.drawImage(preRenderedFlowers[p.imgIdx], 0, 0, 120, 120, -drawSize/2, -drawSize/2, drawSize, drawSize); } ftctx.restore();
+      }
+    });
+    tunnelParticles = aliveParticles; 
+    if (elapsed < durationMs) requestAnimationFrame(frame); else { els.flowerTunnelCanvas.style.display = 'none'; onTunnelDone(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+function openMail() {
+  if (state.isMailOpen) return; sfx.playMailOpen(); completeQuest('mail'); state.isMailOpen = true; player.moving = false; state.target = null;
+  document.getElementById('mailPlayerName').textContent = profile.name || 'babyyy ^^';
+  document.getElementById('envFlap').classList.remove('flap-open'); document.querySelectorAll('.env-part').forEach(el => el.classList.remove('env-fade'));
+  document.getElementById('mailLetter').className = 'mail-content letter-step-1'; document.getElementById('envHitbox').style.display = 'block';
+  els.gameCanvas.style.filter = 'blur(8px)'; const popup = document.getElementById('mailPopup');
+  popup.style.display = 'flex'; void popup.offsetWidth; popup.style.opacity = '1';
+}
+
+document.getElementById('envHitbox').addEventListener('click', () => {
+  sfx.playMailSlide(); const flap = document.getElementById('envFlap'), letter = document.getElementById('mailLetter'), hitbox = document.getElementById('envHitbox');
+  hitbox.style.display = 'none'; flap.classList.add('flap-open');
+  setTimeout(() => { letter.className = 'mail-content letter-step-3'; document.querySelectorAll('.env-part').forEach(el => el.classList.add('env-fade')); }, 400); 
+});
+
+document.getElementById('closeMailBtn').addEventListener('click', () => {
+  sfx.playUI(); const popup = document.getElementById('mailPopup'); popup.style.opacity = '0'; els.gameCanvas.style.filter = 'saturate(1.2) contrast(1.1) brightness(1.05)'; 
+  setTimeout(() => { popup.style.display = 'none'; state.isMailOpen = false; }, 500);
+});
+
+// Defined BEFORE binding
+function handleInteract() {
+  if (state.isItemGetOpen) return;
+  if (state.isDialogueOpen) { if (isTyping) finishTyping(); else if (!currentDialogueNode.choices || currentDialogueNode.choices.length === 0) closeDialogue(); return; }
+  if (state.isNearMailbox && !state.isMailOpen) openMail(); else if (state.isNearDoor) enterHouse(); else if (state.isNearExit) exitHouse(); else if (state.isNearNpc) openDialogue('start');
+}
+
+// Enhanced Mobile touch controls - prevents buttons from sticking on swipe off
+function bindControl(id, keyOrFunc) {
+  const btn = document.getElementById(id); if (!btn) return;
+  const press = (e) => { 
+      e.preventDefault(); e.stopPropagation(); 
+      if (typeof keyOrFunc === 'string') state.keys[keyOrFunc] = true; else keyOrFunc(); 
+      btn.style.transform = 'scale(0.85)'; btn.style.background = 'rgba(255, 255, 255, 0.6)';
+  };
+  const release = (e) => { 
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      if (typeof keyOrFunc === 'string') state.keys[keyOrFunc] = false; 
+      btn.style.transform = 'scale(1)'; btn.style.background = '';
+  };
+  
+  btn.addEventListener('touchstart', press, {passive: false}); 
+  btn.addEventListener('touchend', release, {passive: false}); 
+  btn.addEventListener('touchcancel', release, {passive: false}); 
+  btn.addEventListener('pointerdown', press); 
+  btn.addEventListener('pointerup', release); 
+  btn.addEventListener('pointerleave', release); 
+  btn.addEventListener('pointercancel', release);
+}
+
+// Tap-To-Skip Dialogue Box Logic
+document.getElementById('dialogueBox').addEventListener('click', (e) => {
+    if (e.target.classList.contains('choice-btn')) return;
+    if (isTyping) finishTyping();
+});
+document.getElementById('dialogueBox').addEventListener('touchstart', (e) => {
+    if (e.target.classList.contains('choice-btn')) return;
+    if (isTyping) { e.preventDefault(); finishTyping(); }
+}, {passive: false});
+
+bindControl('btnUp', 'ArrowUp'); bindControl('btnDown', 'ArrowDown'); 
+bindControl('btnLeft', 'ArrowLeft'); bindControl('btnRight', 'ArrowRight'); 
+bindControl('btnAction', handleInteract);
+
+window.addEventListener('keydown', e => {
+  state.keys[e.key] = true;
+  if (state.gameActive && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+  if (e.key.toLowerCase() === 'e') handleInteract();
+});
+window.addEventListener('keyup', e => state.keys[e.key] = false);
+
+function handleGameCanvasTap(clientX, clientY) {
+  if (state.isMailOpen || state.isItemGetOpen) return;
+  if (state.isDialogueOpen) { if (isTyping) finishTyping(); else if (!currentDialogueNode.choices || currentDialogueNode.choices.length === 0) closeDialogue(); return; }
+  
+  if (state.isNearMailbox) { const mbLeft = bgMetrics.offsetX + MAILBOX_RECT.x * bgMetrics.scale - 40, mbRight = bgMetrics.offsetX + (MAILBOX_RECT.x + MAILBOX_RECT.w) * bgMetrics.scale + 40, mbTop = bgMetrics.offsetY + MAILBOX_RECT.y * bgMetrics.scale - 60, mbBottom = bgMetrics.offsetY + (MAILBOX_RECT.y + MAILBOX_RECT.h) * bgMetrics.scale + 40; if (clientX >= mbLeft && clientX <= mbRight && clientY >= mbTop && clientY <= mbBottom) { openMail(); state.target = null; return; } }
+  if (state.isNearDoor) { const dLeft = bgMetrics.offsetX + DOOR_RECT.x * bgMetrics.scale - 40, dRight = bgMetrics.offsetX + (DOOR_RECT.x + DOOR_RECT.w) * bgMetrics.scale + 40, dTop = bgMetrics.offsetY + DOOR_RECT.y * bgMetrics.scale - 40, dBottom = bgMetrics.offsetY + (DOOR_RECT.y + DOOR_RECT.h) * bgMetrics.scale + 40; if (clientX >= dLeft && clientX <= dRight && clientY >= dTop && clientY <= dBottom) { enterHouse(); state.target = null; return; } }
+  if (state.isNearExit) { const eLeft = bgMetrics.offsetX + EXIT_RECT.x * bgMetrics.scale - 40, eRight = bgMetrics.offsetX + (EXIT_RECT.x + EXIT_RECT.w) * bgMetrics.scale + 40, eTop = bgMetrics.offsetY + EXIT_RECT.y * bgMetrics.scale - 40, eBottom = bgMetrics.offsetY + (EXIT_RECT.y + EXIT_RECT.h) * bgMetrics.scale + 40; if (clientX >= eLeft && clientX <= eRight && clientY >= eTop && clientY <= eBottom) { exitHouse(); state.target = null; return; } }
+  if (state.scene === 'inside' && state.isNearNpc) { const nLeft = npcX - 60, nRight = npcX + 60, nTop = npcY - 120, nBottom = npcY + 40; if (clientX >= nLeft && clientX <= nRight && clientY >= nTop && clientY <= nBottom) { openDialogue('start'); state.target = null; return; } }
+  state.target = { x: clientX, y: clientY };
+}
+els.gameCanvas.addEventListener('mousedown', e => handleGameCanvasTap(e.clientX, e.clientY));
+els.gameCanvas.addEventListener('touchstart', e => { handleGameCanvasTap(e.touches[0].clientX, e.touches[0].clientY); }, {passive: true});
+
+document.getElementById('finishBtn').addEventListener('click', () => {
+  sfx.playUISelect(); els.appRoot.style.opacity = '0';
+  setTimeout(() => {
+    els.appRoot.style.display = 'none'; npcObj.type = selectedSpecies; npcObj.name = 'Your Hubby';
+    els.minigameScreen.style.display = 'block'; void els.minigameScreen.offsetWidth; els.minigameScreen.style.opacity = '1';
+    const qs = document.getElementById('questSidebar'); qs.style.display = 'flex'; void qs.offsetWidth; qs.style.opacity = '1'; qs.style.transform = 'translateX(0)';
+    initGame();
+  }, 500);
+});
+
+ftctx.drawImage(preRenderedFlowers[0], 0, 0, 1, 1); ftctx.clearRect(0, 0, 1, 1);
+</script>
+</body>
+</html>
